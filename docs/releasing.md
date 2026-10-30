@@ -28,15 +28,30 @@ The repository must be **public** for this URL to work without credentials.
 
 ## One-time setup
 
-Add two repository secrets under *Settings → Secrets and variables → Actions*:
+**1. Signing key.** Add two repository secrets under *Settings → Secrets and variables →
+Actions*:
 
 | Secret | Value |
 |---|---|
 | `TAURI_SIGNING_PRIVATE_KEY` | the full contents of the private key file |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | its password |
 
-Under *Settings → Actions → General → Workflow permissions*, choose *Read and write
-permissions* so the workflow can create releases.
+**2. Release token.** The workflow's built-in token is not allowed to create a release tag on a
+commit whose history adds or changes files in `.github/workflows/`, so publishing needs a
+personal token:
+
+1. On GitHub, open your avatar → *Settings → Developer settings → Personal access tokens →
+   Fine-grained tokens → Generate new token*.
+2. *Repository access:* *Only select repositories* → `hapax`.
+3. *Permissions → Repository permissions:* **Contents: Read and write** and
+   **Workflows: Read and write**. (*Metadata: Read* is added automatically.)
+4. Choose an expiration, generate, and copy the token.
+5. Add it to the repository as the secret `RELEASE_TOKEN`.
+
+When the token expires, publishing fails with *RELEASE_TOKEN is not set* or a 401/403 in the
+*Publish* step. Generate a new one and replace the secret; nothing else changes.
+
+After adding a secret, open the failed run under *Actions* and choose *Re-run failed jobs*.
 
 Keep a copy of the private key and password in a password manager. **If they are lost, installed
 copies can no longer be updated automatically**: a new key means a new public key in the app,

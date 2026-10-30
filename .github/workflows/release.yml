@@ -7,6 +7,10 @@
 # Required repository secrets:
 #   TAURI_SIGNING_PRIVATE_KEY           contents of the updater private key
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  its password
+#   RELEASE_TOKEN                       fine-grained token: Contents + Workflows read/write
+#                                       on this repository. The built-in GITHUB_TOKEN cannot
+#                                       create a tag on a commit whose history changes
+#                                       .github/workflows, so it cannot publish releases here.
 name: Release
 
 on:
@@ -131,8 +135,12 @@ jobs:
         run: node scripts/make-latest-json.mjs ${{ needs.version.outputs.version }} ${{ needs.version.outputs.tag }} dist-release notes.md
       - name: Publish
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Repository secret RELEASE_TOKEN is not set. See docs/releasing.md → One-time setup, then re-run this job."
+            exit 1
+          fi
           gh release create ${{ needs.version.outputs.tag }} dist-release/* \
             --title "Hapax ${{ needs.version.outputs.version }}" \
             --notes-file notes.md \
