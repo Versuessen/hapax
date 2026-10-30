@@ -1,0 +1,63 @@
+[package]
+name = "hapax"
+version = "1.0.0"
+description = "Hapax — corpus search and analysis over SSH for CWB/CQP servers"
+authors = ["Jonas Bluhm"]
+edition = "2021"
+rust-version = "1.89"
+license = "MIT"
+publish = false
+
+[lib]
+# The `_lib` suffix avoids the Windows bin/lib name clash (cargo issue #8519).
+name = "hapax_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# --- Tauri 2 runtime and the two plugins the frontend needs -----------------
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"   # native Save/Open file pickers for exports & notebooks
+tauri-plugin-opener = "2"   # open codebook reference URLs in the system browser
+# Self-update from GitHub Releases. >= 2.10.1: installs .rpm/.deb as well as AppImage/NSIS.
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-process = "2"  # relaunch after an update is installed
+
+# --- Serialization ----------------------------------------------------------
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# --- Async runtime (Tauri already runs on tokio; these are the extra bits) --
+tokio = { version = "1", features = ["sync", "time", "macros", "rt-multi-thread"] }
+tokio-util = "0.7"          # CancellationToken for the "Stop request" button
+
+# --- Pure-Rust SSH (replaces paramiko) --------------------------------------
+# `ring` instead of the default aws-lc-rs: no CMake/NASM needed on Windows MSVC.
+russh = { version = "0.65", default-features = false, features = ["ring", "rsa", "flate2"] }
+
+# --- OS credential vault (replaces Python `keyring`) ------------------------
+# Windows: Credential Manager.  Fedora KDE: Secret Service (KWallet 6 / GNOME
+# Keyring both implement org.freedesktop.secrets).  Pure-Rust crypto + zbus-free
+# dbus binding; `vendored` builds libdbus statically so no -devel package is
+# required on the build machine.
+keyring = { version = "3.6", features = ["windows-native", "sync-secret-service", "crypto-rust", "vendored"] }
+
+# --- Utilities --------------------------------------------------------------
+thiserror = "2"
+regex = "1"
+csv = "1"
+dirs = "6"                  # %LOCALAPPDATA% / ~/.local/share, same as the Python app
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"   # binaries are smaller; every fallible path already returns Result
+strip = true

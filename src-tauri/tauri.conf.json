@@ -1,0 +1,94 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Hapax",
+  "mainBinaryName": "hapax",
+  "version": "1.0.0",
+  "identifier": "io.github.versuessen.hapax",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Hapax",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 980,
+        "minHeight": 700,
+        "center": true,
+        "resizable": true,
+        "maximizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "shadow": true,
+        "focus": true,
+        "dragDropEnabled": false,
+        "zoomHotkeysEnabled": true,
+        "backgroundColor": "#141414"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost",
+      "freezePrototype": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "rpm",
+      "deb",
+      "appimage"
+    ],
+    "category": "Education",
+    "shortDescription": "Corpus search and analysis over SSH for CWB/CQP servers",
+    "longDescription": "Hapax searches, counts, compares and exports concordances from CWB/CQP corpora over your own SSH login. It only reads from the server.",
+    "copyright": "\u00a9 2026 Jonas Bluhm",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    },
+    "linux": {
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1"
+        ],
+        "release": "1"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDExRjdCQkI0QTM3QTMxRDUKUldUVk1YcWp0THYzRWZrRFFTejhwcEhweFZUU3lOdnpPU0lydEx2MTN5b0hNM3FpaHVPdHg3dXEK",
+      "endpoints": [
+        "https://github.com/Versuessen/hapax/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

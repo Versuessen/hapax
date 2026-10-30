@@ -1,0 +1,182 @@
+/*
+ * Hapax design tokens.
+ *
+ * Dark values are measured from the final stable frames of the reference
+ * video (1 design px ≈ 2.64 video px, derived from the annotated 16/36 px
+ * guides). Light values are a *derived* counterpart: same roles, geometry and
+ * hierarchy, re-tuned for white surfaces. See DESIGN_SYSTEM.md.
+ */
+
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+:root {
+  /* ---- typography ------------------------------------------------------ */
+  --font-sans: "Geist Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Cascadia Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  --fs-display: 34px;   /* page title  ("October 2026" cap 24.6px / 0.71) */
+  --fs-figure: 32px;    /* KPI figure  ("$48,210")                     */
+  --fs-figure-sm: 30px; /* chart-card figure ("$124,860.40")           */
+  --fs-brand: 18px;
+  --fs-title: 15px;     /* header breadcrumb                          */
+  --fs-nav: 15px;       /* nav, search, card labels (= header width match) */
+  --fs-body: 14px;      /* dense content: tables, forms                */
+  --fs-small: 13px;
+  --fs-mono: 12.5px;    /* supporting labels, counts, axis (0.6em advance match) */
+  --fs-micro: 11px;
+
+  --lh-tight: 1.15;
+  --lh-body: 1.45;
+  --track-display: -0.02em;
+  --track-figure: -0.015em;
+  --track-mono: 0;
+
+  /* ---- spacing: the normalized rhythm from the annotations ------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;  /* sidebar inset, brand→search gap */
+  --space-5: 20px;
+  --space-6: 24px;  /* search→section gap, card padding */
+  --space-7: 32px;  /* content padding, section gaps    */
+  --space-8: 40px;
+  --space-9: 48px;
+  --content-pad: 30px; /* measured 29.5–31 px from sidebar border to card edge */
+
+  /* ---- geometry -------------------------------------------------------- */
+  --sidebar-w: 280px;
+  --header-h: 64px;
+  --nav-item-h: 36px;     /* annotated "36px" */
+  --nav-gap: 3px;         /* 39px pitch measured (103 video px / 2.64) */
+  --control-h: 40px;      /* search field */
+  --control-h-sm: 32px;
+  --radius-xs: 5px;       /* keycaps */
+  --radius-sm: 8px;
+  --radius-md: 10px;      /* search, nav item, inputs */
+  --radius-lg: 12px;      /* cards */
+  --radius-xl: 16px;      /* dialogs */
+  --icon: 16px;
+  --icon-stroke: 1.5;
+
+  /* ---- motion ---------------------------------------------------------- */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 180ms;
+}
+
+/* ===== Dark (reference) ================================================== */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-app: #141414;          /* content area */
+  --bg-sidebar: #0f0f0f;      /* slightly darker rail */
+  --surface-1: #181818;       /* cards */
+  --surface-2: #1c1c1c;       /* raised inside cards, table header */
+  --surface-input: #191919;   /* search / inputs */
+  --surface-hover: #1d1d1d;
+  --surface-active-top: #282828;
+  --surface-active-bottom: #1f1f1f;
+  --surface-overlay: #1a1a1a; /* dialogs, menus, tooltips */
+  --scrim: rgba(0, 0, 0, 0.55);
+
+  --border-subtle: #1f1f1f;   /* dividers */
+  --border: #272727;          /* cards, inputs */
+  --border-strong: #353535;   /* keycaps, hover */
+  --highlight: rgba(255, 255, 255, 0.10);   /* 1px top sheen */
+  --highlight-soft: rgba(255, 255, 255, 0.04);
+
+  --text-1: #f2f2f2;          /* primary */
+  --text-2: #a3a3a3;          /* secondary sans */
+  /* Reference measures #6b6b6b (3.3:1 on cards). Raised to the smallest AA value
+     for 12.5px text; hierarchy text-1 > text-2 > text-3 is preserved. */
+  --text-3: #828282;          /* muted mono, section labels, counts */
+  --text-4: #555555;          /* chevrons, disabled */
+  --text-icon: #8b8b8b;       /* nav & header line icons */
+  --text-inverse: #0f0f0f;
+
+  --accent-yellow: #f5bf26;
+  --accent-green: #3ee39a;
+  --accent-blue: #64a4f6;
+  --accent-pink: #ea5ab4;
+  --accent-violet: #a47df9;
+
+  --positive: #3fd38f;
+  --negative: #f26d78;
+  --warning: #f5bf26;
+  --info: #64a4f6;
+
+  --chart-grid: #232323;
+  --chart-axis: #808080;      /* reference #636363; AA for axis text */
+  --chart-neutral: #7a7a7a;   /* mirrored grey series */
+  --chart-glow: 0.55;         /* opacity of the localized glow */
+
+  --match-bg: rgba(245, 191, 38, 0.14);
+  --match-text: #f8d36a;
+  --selection: rgba(100, 164, 246, 0.22);
+
+  --focus: #8db8f8;
+  --shadow-card: 0 1px 0 var(--highlight-soft) inset, 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 1px 0 var(--highlight-soft) inset, 0 18px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-active: 0 1px 0 var(--highlight) inset, 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ===== Light (derived counterpart) ======================================= */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-app: #fafafa;
+  --bg-sidebar: #f3f3f3;
+  --surface-1: #ffffff;
+  --surface-2: #f7f7f7;
+  --surface-input: #ffffff;
+  --surface-hover: #ececec;
+  --surface-active-top: #ffffff;
+  --surface-active-bottom: #f6f6f6;
+  --surface-overlay: #ffffff;
+  --scrim: rgba(20, 20, 20, 0.28);
+
+  --border-subtle: #e6e6e6;
+  --border: #e2e2e2;
+  --border-strong: #d0d0d0;
+  --highlight: rgba(255, 255, 255, 0.9);
+  --highlight-soft: rgba(255, 255, 255, 0.7);
+
+  --text-1: #141414;
+  --text-2: #565656;
+  --text-3: #6e6e6e;          /* ≥4.6:1 on every light surface */
+  --text-4: #9a9a9a;
+  --text-icon: #707070;
+  --text-inverse: #ffffff;
+
+  /* Same hues, deepened so 1.5–2px strokes and text stay readable on white. */
+  --accent-yellow: #d39b00;
+  --accent-green: #14a86a;
+  --accent-blue: #2f7de1;
+  --accent-pink: #d63a97;
+  --accent-violet: #7b55e0;
+
+  --positive: #0d7f4e;
+  --negative: #cc3344;
+  --warning: #a77800;
+  --info: #2f7de1;
+
+  --chart-grid: #ececec;
+  --chart-axis: #707070;
+  --chart-neutral: #a5a5a5;
+  --chart-glow: 0.22;
+
+  --match-bg: rgba(211, 155, 0, 0.16);
+  --match-text: #6b4c00;
+  --selection: rgba(47, 125, 225, 0.14);
+
+  --focus: #2f7de1;
+  --shadow-card: 0 1px 2px rgba(16, 16, 16, 0.04), 0 1px 1px rgba(16, 16, 16, 0.03);
+  --shadow-pop: 0 18px 48px rgba(16, 16, 16, 0.14), 0 2px 8px rgba(16, 16, 16, 0.08);
+  --shadow-active: 0 1px 2px rgba(16, 16, 16, 0.08), 0 0 0 1px rgba(16, 16, 16, 0.02);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur: 0ms; }
+}

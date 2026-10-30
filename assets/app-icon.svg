@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- CQP Explorer app icon: a centred concordance (KWIC) — context lines
+       aligned on one highlighted match column, in the app's charcoal + accent palette. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#262626"/>
+      <stop offset="1" stop-color="#121212"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="match" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd24d"/>
+      <stop offset="1" stop-color="#f2b400"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <clipPath id="tile"><rect x="64" y="64" width="896" height="896" rx="200"/></clipPath>
+  </defs>
+
+  <!-- Tile -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#sheen)"/>
+  <rect x="65.5" y="65.5" width="893" height="893" rx="198.5" fill="none" stroke="#ffffff" stroke-opacity="0.09" stroke-width="3"/>
+
+  <g clip-path="url(#tile)">
+    <!-- Soft glow behind the match column -->
+    <rect x="432" y="250" width="160" height="524" rx="80" fill="#f5bf26" opacity="0.30" filter="url(#glow)"/>
+
+    <!-- Left context (right-aligned toward the match) -->
+    <g fill="#8b8b8b">
+      <rect x="244" y="282" width="152" height="56" rx="28" opacity="0.55"/>
+      <rect x="160" y="414" width="236" height="56" rx="28" opacity="0.8"/>
+      <rect x="292" y="554" width="104" height="56" rx="28" opacity="0.8"/>
+      <rect x="204" y="686" width="192" height="56" rx="28" opacity="0.55"/>
+    </g>
+    <!-- Right context (left-aligned from the match) -->
+    <g fill="#8b8b8b">
+      <rect x="628" y="282" width="196" height="56" rx="28" opacity="0.55"/>
+      <rect x="628" y="414" width="124" height="56" rx="28" opacity="0.8"/>
+      <rect x="628" y="554" width="236" height="56" rx="28" opacity="0.8"/>
+      <rect x="628" y="686" width="152" height="56" rx="28" opacity="0.55"/>
+    </g>
+
+    <!-- The match column -->
+    <rect x="432" y="250" width="160" height="524" rx="80" fill="url(#match)"/>
+    <g fill="#141414" opacity="0.85">
+      <rect x="470" y="294" width="84" height="40" rx="20"/>
+      <rect x="470" y="426" width="84" height="40" rx="20"/>
+      <rect x="470" y="558" width="84" height="40" rx="20"/>
+      <rect x="470" y="690" width="84" height="40" rx="20"/>
+    </g>
+
+    <!-- Accent dots: the five tagset families -->
+    <g>
+      <circle cx="384" cy="850" r="16" fill="#f5bf26"/>
+      <circle cx="448" cy="850" r="16" fill="#3ee39a"/>
+      <circle cx="512" cy="850" r="16" fill="#64a4f6"/>
+      <circle cx="576" cy="850" r="16" fill="#ea5ab4"/>
+      <circle cx="640" cy="850" r="16" fill="#a47df9"/>
+    </g>
+  </g>
+</svg>

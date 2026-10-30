@@ -1,0 +1,9 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+# Release artefacts and secrets — never commit signing keys
+dist-release/
+notes.md
+*.key
+*.key.password
