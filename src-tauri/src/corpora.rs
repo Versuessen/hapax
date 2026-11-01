@@ -30,6 +30,39 @@ pub struct CorpusInfo {
     /// "verified" (bundled, checked by hand) or "discovered" (read from the registry).
     #[serde(default = "verified")]
     pub source: String,
+    /// Language variety as a BCP 47-style tag: `en-GB`, `en-US`, `en-AU`, …,
+    /// `en-learner` for learner corpora, a bare language (`de`) when only that is
+    /// known, or `None` when unknown.
+    #[serde(default)]
+    pub variety: Option<String>,
+    /// Where `variety` comes from or what it covers, shown as a tooltip.
+    #[serde(default)]
+    pub variety_note: Option<String>,
+}
+
+/// Best guess at a discovered corpus's variety, from its registry `NAME`
+/// and `##:: language` header. Conservative: returns `None` rather than guess.
+pub fn infer_variety(name: &str, id: &str, language: &str) -> (Option<String>, Option<String>) {
+    let text = format!(" {} {} ", name.to_lowercase(), id.to_lowercase());
+    const PLACES: [(&str, &[&str]); 8] = [
+        ("en-GB", &["british", " bnc", "britain", "england", " uk "]),
+        ("en-US", &["american", " usa", " u.s.", "united states", " coca"]),
+        ("en-AU", &["australia"]),
+        ("en-NZ", &["new zealand"]),
+        ("en-CA", &["canad"]),
+        ("en-IE", &["irish", "ireland"]),
+        ("en-IN", &["india"]),
+        ("en-learner", &["learner", " esl", " efl", "interlanguage"]),
+    ];
+    let hits: Vec<&str> = PLACES.iter().filter(|(_, keys)| keys.iter().any(|k| text.contains(k))).map(|(v, _)| *v).collect();
+    if hits.len() == 1 {
+        return (Some(hits[0].to_string()), Some(format!("Inferred from the corpus name “{}”", name.trim())));
+    }
+    let lang = language.trim().to_lowercase();
+    if !lang.is_empty() && lang != "??" && lang.chars().all(|c| c.is_ascii_alphabetic() || c == '-') && lang.len() <= 8 {
+        return (Some(lang), Some("Language from the corpus registry; regional variety unknown".into()));
+    }
+    (None, None)
 }
 
 fn yes() -> bool { true }
@@ -140,6 +173,8 @@ pub fn merge_registry(reply: &Value) -> Discovery {
             let metadata: Vec<String> = strs("annotated").into_iter().filter(|a| structural.contains_key(a)).collect();
             let lexeme = ["hw", "lemma"].iter().find(|a| positional.iter().any(|p| p == *a)).map(|s| s.to_string());
             let name = c.get("name").and_then(Value::as_str).filter(|s| !s.trim().is_empty()).unwrap_or(&id).to_string();
+            let (variety, variety_note) =
+                infer_variety(&name, &id, c.get("language").and_then(Value::as_str).unwrap_or(""));
             inv.insert(id.clone(), CorpusInfo {
                 description: name,
                 tokens: c.get("tokens").and_then(Value::as_u64).unwrap_or(0),
@@ -150,6 +185,8 @@ pub fn merge_registry(reply: &Value) -> Discovery {
                 lexeme,
                 available: true,
                 source: "discovered".into(),
+                variety,
+                variety_note,
             });
             added.push(id);
         }
@@ -231,6 +268,29 @@ pub fn source_attribute(corpus: &str) -> Option<String> {
 }
 
 #[cfg(test)]
+mod variety_tests {
+    use super::*;
+
+    #[test]
+    fn bundled_corpora_all_have_a_variety_decision() {
+        let b = bundled();
+        assert_eq!(b["BNC"].variety.as_deref(), Some("en-GB"));
+        assert_eq!(b["FROWN-LEGACY"].variety.as_deref(), Some("en-US"));
+        assert_eq!(b["EFCAM"].variety.as_deref(), Some("en-learner"));
+        assert!(b["DOORCORP"].variety.is_none());
+    }
+
+    #[test]
+    fn inference_is_conservative() {
+        assert_eq!(infer_variety("International Corpus of English - Australia", "ice-aus", "en").0.as_deref(), Some("en-AU"));
+        assert_eq!(infer_variety("Spoken American English 2020", "sae", "").0.as_deref(), Some("en-US"));
+        assert_eq!(infer_variety("British and American press", "mix", "").0, None); // ambiguous
+        assert_eq!(infer_variety("Mystery corpus", "myst", "de").0.as_deref(), Some("de"));
+        assert_eq!(infer_variety("Mystery corpus", "myst", "??").0, None);
+    }
+}
+
+#[cfg(test)]
 mod discovery_tests {
     use super::*;
     use serde_json::json;
@@ -254,6 +314,7 @@ mod discovery_tests {
         let n = &d.corpora["NEWCORP"];
         assert_eq!((n.tokens, n.lexeme.as_deref(), n.source.as_str()), (1234, Some("lemma"), "discovered"));
         assert_eq!(n.metadata, vec!["text_genre"]);
+        assert_eq!(n.variety, None); // "A new corpus": no place or language to go on
         assert!(!d.corpora.contains_key("BAD;ID"));
     }
 

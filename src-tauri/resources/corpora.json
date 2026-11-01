@@ -234,7 +234,9 @@
       "mw_hw",
       "mw_class"
     ],
-    "lexeme": "hw"
+    "lexeme": "hw",
+    "variety": "en-GB",
+    "variety_note": "British English, mostly 1985–1994, written and spoken"
   },
   "BNC-BABY": {
     "description": "British National Corpus (BABY)",
@@ -471,7 +473,9 @@
       "mw_hw",
       "mw_class"
     ],
-    "lexeme": "hw"
+    "lexeme": "hw",
+    "variety": "en-GB",
+    "variety_note": "British English, sample of the BNC"
   },
   "BNC2014-S": {
     "description": "BRITISH NATIONAL CORPUS 2014 SPOKEN PART",
@@ -593,7 +597,9 @@
       "shift_new",
       "vocal_desc"
     ],
-    "lexeme": "lemma"
+    "lexeme": "lemma",
+    "variety": "en-GB",
+    "variety_note": "British English, spoken, 2012–2016"
   },
   "BROWN-LEGACY": {
     "description": "BROWN (A Standard Corpus of Present-Day Edited American English) (1960)",
@@ -613,7 +619,9 @@
       "file_id",
       "s_id"
     ],
-    "lexeme": null
+    "lexeme": null,
+    "variety": "en-US",
+    "variety_note": "American English, 1961"
   },
   "CLMET": {
     "description": "Corpus of Late Modern English Texts (CLMET), Version 3.1",
@@ -668,7 +676,9 @@
       "file_comments",
       "page_type"
     ],
-    "lexeme": "lemma"
+    "lexeme": "lemma",
+    "variety": "en-GB",
+    "variety_note": "British and Irish authors, 1710–1920"
   },
   "DOORCORP": {
     "description": "Dooring Accident Corpus",
@@ -698,7 +708,9 @@
       "text_url",
       "del_type"
     ],
-    "lexeme": "lemma"
+    "lexeme": "lemma",
+    "variety": null,
+    "variety_note": null
   },
   "EFCAM": {
     "description": "EF-Cambridge Database",
@@ -747,7 +759,9 @@
       "text_grade",
       "text_sentences"
     ],
-    "lexeme": "lemma"
+    "lexeme": "lemma",
+    "variety": "en-learner",
+    "variety_note": "Learner English, writers of many first languages"
   },
   "FLOB-LEGACY": {
     "description": "The Freiburg-LOB corpus of British English (1990s)",
@@ -787,10 +801,12 @@
       "gap_desc",
       "corr_orig"
     ],
-    "lexeme": null
+    "lexeme": null,
+    "variety": "en-GB",
+    "variety_note": "British English, 1991"
   },
   "FROWN-LEGACY": {
-    "description": "The Freiburg-BROWN corpus of British English (1990s)",
+    "description": "The Freiburg-Brown corpus of American English (1990s)",
     "tokens": 1180152,
     "encoding": "latin1",
     "positional": [
@@ -830,7 +846,9 @@
       "note_desc",
       "reg_orig"
     ],
-    "lexeme": null
+    "lexeme": null,
+    "variety": "en-US",
+    "variety_note": "American English, 1992"
   },
   "LOB-LEGACY": {
     "description": "The Lancaster-Oslo/Bergen corpus of British English (1960)",
@@ -852,6 +870,8 @@
       "file_id",
       "gap_desc"
     ],
-    "lexeme": null
+    "lexeme": null,
+    "variety": "en-GB",
+    "variety_note": "British English, 1961"
   }
 }

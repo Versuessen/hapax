@@ -102,6 +102,17 @@ export function Select({ options, small, className = "", ...rest }) {
   return (
     <select className={`select${small ? " select--sm" : ""} ${className}`} {...rest}>
       {options.map((o) => {
+        // { group, options } renders an <optgroup> of the same option shapes.
+        if (o && !Array.isArray(o) && typeof o === "object" && o.group) {
+          return (
+            <optgroup key={`g:${o.group}`} label={o.group}>
+              {o.options.map((x) => {
+                const [value, label, disabled] = Array.isArray(x) ? x : [x, x, false];
+                return <option key={value} value={value} disabled={disabled}>{label}</option>;
+              })}
+            </optgroup>
+          );
+        }
         const [value, label, disabled] = Array.isArray(o) ? o : [o, o, false];
         return (
           <option key={value} value={value} disabled={disabled}>

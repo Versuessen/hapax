@@ -160,6 +160,7 @@ export const GUIDES = {
     ],
     notes: [
       "The corpus list is read from the server when you connect. A corpus marked unavailable is not currently installed there.",
+      "The flag shows each corpus's language variety; point at it for the period and source. A corpus found on the server gets a variety only when its registry name or language states one — otherwise it shows ?.",
       "Token counts include punctuation.",
     ],
   },

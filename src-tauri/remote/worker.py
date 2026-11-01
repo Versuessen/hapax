@@ -330,6 +330,8 @@ try:
                 if m: info["name"] = m.group(1)[:200]; continue
                 m = re.match(r'^##::\s*charset\s*=\s*"?([A-Za-z0-9_-]+)"?', s)
                 if m: info["charset"] = m.group(1); continue
+                m = re.match(r'^##::\s*language\s*=\s*"?([A-Za-z?_-]+)"?', s)
+                if m: info["language"] = m.group(1)[:16]; continue
                 m = re.match(r'^ATTRIBUTE\s+(\S+)', s)
                 if m: info["positional"].append(m.group(1)); continue
                 m = re.match(r'^STRUCTURE\s+(\S+)(.*)$', s)

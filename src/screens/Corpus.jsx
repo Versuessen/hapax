@@ -6,7 +6,8 @@ import { invoke } from "../lib/ipc.js";
 import { Button, Card, Chip, EmptyState, Field, Notice, Select } from "../components/ui.jsx";
 import { BarCell } from "../components/charts.jsx";
 import { ExplainPanel } from "./Analysis.jsx";
-import { CORPUS_ORDER, corpusColor, corpusFamily, orderedCorpora, isSearchable } from "../nav.js";
+import { corpusColor, corpusFamily, orderedCorpora, isSearchable, varietyInfo } from "../nav.js";
+import { Flag } from "../components/Flag.jsx";
 import { compact, seconds, thousands } from "../lib/format.js";
 
 /** Verified caveats from the handoff (docs/07 F4, F5). Labelled, not silently "fixed". */
@@ -75,7 +76,7 @@ export default function Corpus() {
           <button key={c} type="button" className="card" onClick={() => { setName(c); setAttr(""); setValues(null); setField(null); }} aria-pressed={c === name}
             style={{ textAlign: "left", padding: 18, color: "inherit", borderColor: c === name ? "var(--border-strong)" : undefined, background: c === name ? "linear-gradient(180deg, var(--surface-active-top), var(--surface-active-bottom))" : undefined }}>
             <div className="row" style={{ flexWrap: "nowrap" }}>
-              <span className="dot" style={{ background: corpusColor(c), color: corpusColor(c) }} />
+              <Flag variety={info.corpora[c].variety} note={info.corpora[c].variety_note} />
               <span style={{ fontWeight: 500 }}>{c}</span>
               <span className="mono" style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-3)" }}>{info.corpora[c].available === false ? "offline" : info.corpora[c].tokens ? compact(info.corpora[c].tokens) : "—"}</span>
             </div>
@@ -86,7 +87,7 @@ export default function Corpus() {
 
       <div className="grid grid--split" style={{ alignItems: "start" }}>
         <div className="stack">
-          <Card title={ci.description} sub={`${thousands(ci.tokens)} indexed tokens (incl. punctuation) · encoding ${ci.encoding} · ${corpusFamily(name)?.label}`}
+          <Card title={ci.description} sub={`${ci.variety_note || varietyInfo(ci.variety).label} · ${thousands(ci.tokens)} indexed tokens (incl. punctuation) · encoding ${ci.encoding} · ${corpusFamily(name)?.label}`}
             actions={<Button variant="primary" disabled={!isSearchable(ci)} onClick={() => { setQuery({ ...query, corpus: name, meta_attr: "", meta_value: "" }); setSearch(null); setScreen("search"); }}>Search this corpus</Button>}>
             <div className="stack" style={{ gap: 16 }}>
               {ci.available === false && <Notice tone="warn">{name} was not in the server's corpus registry when you connected, so it cannot be searched now. The details below are from the app's built-in description.</Notice>}

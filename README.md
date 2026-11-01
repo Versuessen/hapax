@@ -71,6 +71,8 @@ The name comes from *hapax legomenon*: a word that occurs only once in a corpus.
 - A request console (<kbd>Ctrl</kbd>+<kbd>`</kbd>) logs every command sent and every reply.
 
 **Stay current**
+- Corpora are grouped by language variety (British, American, learner English, …) and flagged,
+  so you can see at a glance what you are comparing.
 - The list of corpora is read from the server's registry on every connect. New corpora appear,
   removed ones are marked offline, and a fixed registry charset is picked up automatically.
 - Hapax updates itself from signed GitHub releases.

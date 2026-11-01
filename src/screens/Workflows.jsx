@@ -1,3 +1,4 @@
+import { Flag } from "../components/Flag.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { describeFollowers } from "../lib/sequence.js";
 import { TerminalBlock } from "../components/TerminalBlock.jsx";
@@ -337,7 +338,7 @@ function Compare() {
                 const unq = !isSearchable(info?.corpora?.[c]);
                 return (
                   <button key={c} type="button" className={`chip-toggle${on ? " is-on" : ""}`} aria-pressed={on} disabled={unq || (!on && corpora.length >= 6)} onClick={() => toggle(c)} title={unq ? "Not searchable on this server" : ""}>
-                    <span className="dot" style={{ background: corpusColor(c), color: corpusColor(c) }} />{c}{on && corpora[0] === c ? " · ref" : ""}
+                    <Flag variety={info.corpora[c].variety} note={info.corpora[c].variety_note} size={14} />{c}{on && corpora[0] === c ? " · ref" : ""}
                   </button>
                 );
               })}
@@ -364,7 +365,7 @@ function Compare() {
                   const ratio = i && ref?.per_million_tokens ? r.per_million_tokens / ref.per_million_tokens : null;
                   return (
                     <tr key={r.corpus}>
-                      <td><span className="row" style={{ flexWrap: "nowrap" }}><span className="dot" style={{ background: corpusColor(r.corpus), color: corpusColor(r.corpus) }} />{r.corpus}</span></td>
+                      <td><span className="row" style={{ flexWrap: "nowrap" }}><Flag variety={info?.corpora?.[r.corpus]?.variety} note={info?.corpora?.[r.corpus]?.variety_note} size={14} />{r.corpus}</span></td>
                       <td className="num">{thousands(r.total)}</td><td className="num">{thousands(r.tokens)}</td>
                       <td><BarCell value={r.per_million_tokens} max={max} color={corpusColor(r.corpus)} /></td>
                       <td className="num">{r.per_million_tokens.toFixed(2)}</td>

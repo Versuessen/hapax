@@ -3,7 +3,7 @@ import { ChevronDown, Code2, Plus, X } from "lucide-react";
 import { MAX_NEXT, followersOf, withFollowers } from "../lib/sequence.js";
 import { useApp } from "../state/store.jsx";
 import { invoke } from "../lib/ipc.js";
-import { CORPUS_ORDER, orderedCorpora } from "../nav.js";
+import { CORPUS_ORDER, corporaByVariety } from "../nav.js";
 import { Checkbox, Field, ICON, Input, Select } from "./ui.jsx";
 
 export const FIELD_LABELS = {
@@ -40,11 +40,12 @@ export function resolvedField(info, field) {
 
 export function corpusOptions(info) {
   if (!info) return [];
-  return orderedCorpora(info).map((c) => {
+  const one = (c) => {
     const ci = info.corpora[c];
     if (ci.available === false) return [c, `${c} — not on the server`, true];
     return [c, ci.encoding === "<unsupported>" ? `${c} — cannot be searched` : c];
-  });
+  };
+  return corporaByVariety(info).map((g) => ({ group: g.info.label, options: g.corpora.map(one) }));
 }
 
 /** Live, debounced CQP preview + validation message from the Rust compiler. */

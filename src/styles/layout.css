@@ -137,6 +137,7 @@
 .shell[data-collapsed="true"] .nav-item__meta,
 .shell[data-collapsed="true"] .nav-item__chevron,
 .shell[data-collapsed="true"] .nav-section__label span,
+.shell[data-collapsed="true"] .nav-group-label,
 .shell[data-collapsed="true"] .nav-sub { display: none; }
 .shell[data-collapsed="true"] .sidebar__top,
 .shell[data-collapsed="true"] .sidebar__scroll { padding-left: 10px; padding-right: 10px; }

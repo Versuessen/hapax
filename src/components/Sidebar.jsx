@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, PanelLeft, Search } from "lucide-react";
 import { useApp } from "../state/store.jsx";
-import { NAV, CORPUS_ORDER, corpusColor, corpusFamily, orderedCorpora } from "../nav.js";
+import { NAV, corpusColor, corpusFamily, corporaByVariety, varietyInfo } from "../nav.js";
+import { Flag } from "./Flag.jsx";
 import { BrandMark, ICON, Kbd } from "./ui.jsx";
 import { compact } from "../lib/format.js";
 import { modKey } from "../lib/platform.js";
@@ -118,7 +119,12 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
           <div className="nav-section__label"><span>Working corpus</span></div>
           <ul className="nav-list">
             {info &&
-              orderedCorpora(info).map((c) => {
+              corporaByVariety(info).flatMap((g) => [
+                <li key={`v:${g.key}`} className="nav-group-label" aria-hidden="true" title={g.info.label}>
+                  <Flag variety={g.variety} size={15} />
+                  <span>{g.info.label}</span>
+                </li>,
+                ...g.corpora.map((c) => {
                 const ci = info.corpora[c];
                 const offline = ci.available === false;
                 const broken = ci.encoding === "<unsupported>";
@@ -130,7 +136,7 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
                     className="nav-item corpus-item"
                     aria-pressed={query.corpus === c}
                     disabled={offline}
-                    title={`${c} — ${ci.description} · ${corpusFamily(c).label}${why}`}
+                    title={`${c} — ${ci.description} · ${ci.variety_note || varietyInfo(ci.variety).label} · ${corpusFamily(c).label}${why}`}
                     onClick={() => pickCorpus(c)}
                     style={query.corpus === c ? { color: "var(--text-1)" } : offline ? { opacity: 0.45 } : undefined}
                   >
@@ -140,7 +146,8 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
                   </button>
                 </li>
                 );
-              })}
+                }),
+              ])}
           </ul>
         </nav>
       </div>
