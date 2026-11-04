@@ -142,6 +142,9 @@ pub struct GroupResult {
     pub total: u64,
     pub groups: Vec<GroupRow>,
     pub truncated: bool,
+    /// Matches that were counted (below `total` only for capped phrase counts).
+    #[serde(default)]
+    pub counted: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,6 +185,9 @@ pub struct DistributionRow {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DistributionResult {
+    /// Group sizes count only regions that pass the search's document filters.
+    #[serde(default)]
+    pub sizes_filtered: bool,
     pub total: u64,
     /// Matches actually assigned to a value (capped on very large results).
     pub counted: u64,
@@ -195,6 +201,13 @@ pub struct CompareRow {
     pub total: u64,
     pub tokens: u64,
     pub per_million_tokens: f64,
+    /// Filters applied in this corpus.
+    #[serde(default)]
+    pub subcorpus: bool,
+    /// `tokens` is the filtered subcorpus size (false: whole corpus, because
+    /// the filters sit on differently segmented attributes).
+    #[serde(default)]
+    pub subcorpus_measured: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -318,6 +331,7 @@ pub fn decode_frequencies(raw: &str) -> AppResult<GroupResult> {
         total: u64_of(&v, "total"),
         groups: parse_group(array_of(&v, "lines"), 300)?,
         truncated: v.get("truncated").and_then(Value::as_bool).unwrap_or(false),
+        counted: v.get("counted").and_then(Value::as_u64),
     })
 }
 
@@ -382,6 +396,7 @@ pub fn decode_distribution(raw: &str) -> AppResult<DistributionResult> {
         counted: u64_of(&v, "counted"),
         rows,
         truncated: v.get("truncated").and_then(Value::as_bool).unwrap_or(false),
+        sizes_filtered: v.get("sizes_filtered").and_then(Value::as_bool).unwrap_or(false),
     })
 }
 

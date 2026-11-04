@@ -63,6 +63,12 @@ fn cqp_body(p: &Value) -> Option<String> {
                 off + lim - 1
             ))
         }
+        "frequencies" if s(p, "group_anchor") == "phrase" => Some(format!(
+            "{}\ncount Hits by {}{};   # each distinct matched phrase, most frequent first",
+            query(s(p, "corpus"), s(p, "expression"), "Hits"),
+            s(p, "group_field"),
+            if p["fold_case"].as_bool() == Some(true) { " %c" } else { "" }
+        )),
         "frequencies" => Some(format!(
             "{}\ngroup Hits {} {};",
             query(s(p, "corpus"), s(p, "expression"), "Hits"),

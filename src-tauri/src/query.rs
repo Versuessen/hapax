@@ -59,6 +59,90 @@ pub struct QuerySpec {
     /// saved searches and workflow files load unchanged).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub next: Vec<NextToken>,
+    /// Document filters, all of which must hold (AND). The legacy single
+    /// `meta_attr`/`meta_value` pair still works and is applied first.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub filters: Vec<MetaFilter>,
+}
+
+/// One document/region filter on a structural attribute with values.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(default)]
+pub struct MetaFilter {
+    pub attr: String,
+    /// "is" (value; `|` separates alternatives) | "not" | "years" (from/to).
+    pub op: String,
+    pub value: String,
+    pub from: Option<i64>,
+    pub to: Option<i64>,
+}
+
+pub const MAX_FILTERS: usize = 6;
+/// Alternatives in one filter value (picked from a value list, so more than for words).
+const MAX_FILTER_VALUES: usize = 200;
+
+/// The query's filters in the structured form the worker uses to measure a
+/// filtered subcorpus (`kept_regions` in worker.py). Same semantics as the CQP
+/// constraints: exact values, `not`, and years matched at the start of the value.
+pub fn filter_spec(q: &QuerySpec) -> Vec<Value> {
+    let mut out = Vec::new();
+    let mv = q.meta_value.trim();
+    if !q.meta_attr.is_empty() && !mv.is_empty() {
+        out.push(json!({ "attr": q.meta_attr, "op": "is", "values": [mv] }));
+    }
+    for f in q.filters.iter().filter(|f| !f.attr.is_empty()) {
+        match f.op.as_str() {
+            "years" => out.push(json!({ "attr": f.attr, "op": "years", "from": f.from.unwrap_or(1000), "to": f.to.unwrap_or(2100) })),
+            op => {
+                let values: Vec<&str> = f.value.split('|').map(str::trim).filter(|v| !v.is_empty()).collect();
+                out.push(json!({ "attr": f.attr, "op": if op == "not" { "not" } else { "is" }, "values": values }));
+            }
+        }
+    }
+    out
+}
+
+/// Compile one filter into a CQP global-constraint term on `match.<attr>`.
+/// Values are matched literally; a year range becomes an alternation of the
+/// years it covers, anchored at the start of the stored value, so "1985-1993"
+/// counts as 1985 and non-numeric values never match. (No `int()`: it fails on
+/// values like "1985-1993".)
+pub fn filter_constraint(f: &MetaFilter, corpus: &str) -> AppResult<String> {
+    let info = corpora::get(corpus)?;
+    if !info.metadata.iter().any(|m| m == &f.attr) {
+        return invalid(format!("{corpus} has no metadata attribute '{}'", f.attr));
+    }
+    let attr = &f.attr;
+    let values = |raw: &str| -> AppResult<String> {
+        let parts: Vec<&str> = raw.split('|').map(str::trim).filter(|p| !p.is_empty()).collect();
+        if parts.is_empty() {
+            return invalid(format!("Filter on {attr}: enter a value"));
+        }
+        if parts.len() > MAX_FILTER_VALUES {
+            return invalid(format!("Filter on {attr}: at most {MAX_FILTER_VALUES} values"));
+        }
+        let mut out = Vec::new();
+        for p in parts {
+            out.push(escape_regex_literal(&clean_meta_value(p)?));
+        }
+        Ok(if out.len() == 1 { out.remove(0) } else { format!("({})", out.join("|")) })
+    };
+    match f.op.as_str() {
+        "is" | "" => Ok(format!("match.{attr}=\"{}\"", values(&f.value)?)),
+        "not" => Ok(format!("match.{attr}!=\"{}\"", values(&f.value)?)),
+        "years" => {
+            let (from, to) = (f.from.unwrap_or(1000), f.to.unwrap_or(2100));
+            if !(1000..=2100).contains(&from) || !(1000..=2100).contains(&to) || from > to {
+                return invalid(format!("Filter on {attr}: enter a year range between 1000 and 2100, earliest first"));
+            }
+            if to - from > 400 {
+                return invalid(format!("Filter on {attr}: a year range can span at most 400 years"));
+            }
+            let years: Vec<String> = (from..=to).map(|y| y.to_string()).collect();
+            Ok(format!("match.{attr}=\"({}).*\"", years.join("|")))
+        }
+        other => invalid(format!("Unknown filter type '{other}'")),
+    }
 }
 
 /// One more word in a multi-word sequence.
@@ -99,6 +183,7 @@ impl Default for QuerySpec {
             meta_attr: String::new(),
             meta_value: String::new(),
             next: Vec::new(),
+            filters: Vec::new(),
         }
     }
 }
@@ -186,6 +271,12 @@ impl CompiledQuery {
 
 /// `build_query` from cqp_core.py — byte-for-byte identical output.
 pub fn build_query(q: &QuerySpec) -> AppResult<CompiledQuery> {
+    build_query_marked(q, None)
+}
+
+/// As `build_query`, with CQP's target marker `@` on word `target` (1-based),
+/// so that `group … target …` can count any word of a sequence.
+pub fn build_query_marked(q: &QuerySpec, target: Option<usize>) -> AppResult<CompiledQuery> {
     let info = match corpora::all().get(&q.corpus) {
         Some(i) => i,
         None => return invalid("Unknown corpus"),
@@ -200,9 +291,15 @@ pub fn build_query(q: &QuerySpec) -> AppResult<CompiledQuery> {
     if !q.regex {
         value = literal_alternatives(&value)?;
     }
-    let mut expression = format!("[{field}=\"{value}\"{flag}]");
+    let mark = |n: usize| if target == Some(n) { "@" } else { "" };
+    let mut expression = format!("{}[{field}=\"{value}\"{flag}]", mark(1));
 
     let rest = followers(q);
+    if let Some(t) = target {
+        if t < 1 || t > rest.len() + 1 {
+            return invalid(format!("The search has {} words; there is no word {t}", rest.len() + 1));
+        }
+    }
     if rest.len() > MAX_NEXT {
         return invalid(format!("A sequence can have at most {} words", MAX_NEXT + 1));
     }
@@ -224,7 +321,7 @@ pub fn build_query(q: &QuerySpec) -> AppResult<CompiledQuery> {
             expression.push_str(&format!(" []{{0,{}}}", t.gap));
         }
         let opt = if t.optional { "?" } else { "" };
-        expression.push_str(&format!(" [{f}=\"{v}\"{fl}]{opt}"));
+        expression.push_str(&format!(" {}[{f}=\"{v}\"{fl}]{opt}", mark(word_no)));
     }
     if q.sentence_only {
         if !info.structural.contains_key("s") {
@@ -232,13 +329,25 @@ pub fn build_query(q: &QuerySpec) -> AppResult<CompiledQuery> {
         }
         expression.push_str(" within s");
     }
+    let mut constraints = Vec::new();
     let mv = q.meta_value.trim();
     if !q.meta_attr.is_empty() && !mv.is_empty() {
         if !info.metadata.iter().any(|m| m == &q.meta_attr) {
             return invalid("Unknown corpus metadata field");
         }
         clean_meta_value(mv)?;
-        expression.push_str(&format!(" :: match.{}=\"{}\"", q.meta_attr, mv));
+        constraints.push(format!("match.{}=\"{}\"", q.meta_attr, mv));
+    }
+    let active: Vec<&MetaFilter> = q.filters.iter().filter(|f| !f.attr.is_empty()).collect();
+    if active.len() > MAX_FILTERS {
+        return invalid(format!("At most {MAX_FILTERS} document filters"));
+    }
+    for f in active {
+        constraints.push(filter_constraint(f, &q.corpus)?);
+    }
+    if !constraints.is_empty() {
+        // Legacy single filter alone keeps its exact v3 form: ` :: match.a="v"`.
+        expression.push_str(&format!(" :: {}", constraints.join(" & ")));
     }
     Ok(CompiledQuery { corpus: q.corpus.clone(), expression, field })
 }
@@ -314,6 +423,10 @@ pub struct CompareRequest {
     /// Its `corpus` and document filter are ignored: metadata differs per corpus.
     #[serde(default)]
     pub query: Option<QuerySpec>,
+    /// Document filters per corpus (metadata differs between corpora). Rates for
+    /// a filtered corpus divide by the size of the filtered part.
+    #[serde(default)]
+    pub filters: std::collections::BTreeMap<String, Vec<MetaFilter>>,
 }
 
 pub const MAX_COMPARE: usize = 6;
@@ -367,20 +480,42 @@ pub fn search_payload(r: &SearchRequest, export: bool) -> AppResult<Value> {
     Ok(payload)
 }
 
+/// Phrase counts are assigned from at most this many matches.
+pub const PHRASE_CAP: u64 = 200_000;
+
+/// `group_position` values: first | last | before | after (any search),
+/// `word:N` (word N of a sequence, via CQP's target marker) and `phrase`
+/// (the whole matched span, counted by the worker from `tabulate`).
 pub fn frequency_payload(r: &FrequencyRequest) -> AppResult<Value> {
-    let compiled = build_query(&r.query)?;
     let group_field = corpora::resolve_field(&r.query.corpus, &r.group_field)?;
     if !GROUPABLE.contains(&group_field.as_str()) {
         return invalid("Grouping by this field is not yet supported");
     }
-    let anchor = group_anchor(&r.group_position)?;
-    Ok(json!({
+    let pos = r.group_position.as_str();
+    let (compiled, anchor) = if let Some(n) = pos.strip_prefix("word:") {
+        let n: usize = n.parse().map_err(|_| crate::error::AppError::Validation("Choose which word to count".into()))?;
+        let c = build_query_marked(&r.query, Some(n))?;
+        // Word 1 and the last word have fixed anchors; anything between uses @.
+        let words = followers(&r.query).len() + 1;
+        let anchor = if n == 1 { "match" } else if n == words { "matchend" } else { "target" };
+        (if anchor == "target" { c } else { build_query(&r.query)? }, anchor)
+    } else if pos == "phrase" {
+        (build_query(&r.query)?, "phrase")
+    } else {
+        (build_query(&r.query)?, group_anchor(pos)?)
+    };
+    let mut payload = json!({
         "op": "frequencies",
         "corpus": compiled.corpus,
         "expression": compiled.expression,
         "group_field": group_field,
         "group_anchor": anchor,
-    }))
+    });
+    if anchor == "phrase" {
+        payload["cap"] = json!(PHRASE_CAP);
+        payload["fold_case"] = json!(r.query.ignore_case && CASE_FOLDABLE.contains(&group_field.as_str()));
+    }
+    Ok(payload)
 }
 
 pub fn collocate_payload(r: &CollocateRequest) -> AppResult<Value> {
@@ -414,12 +549,18 @@ pub fn compare_payload(r: &CompareRequest) -> AppResult<Value> {
     for corpus in &r.corpora {
         let mut q = base.clone();
         q.corpus = corpus.clone();
+        q.filters = r.filters.get(corpus).cloned().unwrap_or_default();
         // Sentence limits only where the corpus has sentences.
         if q.sentence_only && !corpora::get(corpus)?.structural.contains_key("s") {
             q.sentence_only = false;
         }
         let c = build_query(&q).map_err(|e| crate::error::AppError::Validation(format!("{corpus}: {e}")))?;
-        compiled.push(json!([c.corpus, c.expression, corpora::get(corpus)?.tokens]));
+        let spec = filter_spec(&q);
+        if spec.is_empty() {
+            compiled.push(json!([c.corpus, c.expression, corpora::get(corpus)?.tokens]));
+        } else {
+            compiled.push(json!([c.corpus, c.expression, corpora::get(corpus)?.tokens, spec]));
+        }
     }
     Ok(json!({
         "op": "compare",
@@ -467,13 +608,18 @@ pub const DISTRIBUTION_CAP: u64 = 200_000;
 pub fn distribution_payload(r: &DistributionRequest) -> AppResult<Value> {
     let compiled = build_query(&r.query)?;
     metadata_payload(&MetadataRequest { corpus: r.query.corpus.clone(), attribute: r.attribute.clone() })?;
-    Ok(json!({
+    let mut payload = json!({
         "op": "distribution",
         "corpus": compiled.corpus,
         "expression": compiled.expression,
         "attribute": r.attribute,
         "cap": DISTRIBUTION_CAP,
-    }))
+    });
+    let spec = filter_spec(&r.query);
+    if !spec.is_empty() {
+        payload["filters"] = json!(spec); // omitted when unfiltered, so cache keys stay stable
+    }
+    Ok(payload)
 }
 
 pub fn syntax_payload(r: &SyntaxRequest) -> AppResult<Value> {
@@ -535,6 +681,71 @@ pub fn thousands_2dp(x: f64) -> String {
     let s = format!("{x:.2}");
     let (int, frac) = s.split_once('.').unwrap_or((&s, "00"));
     format!("{}.{}", thousands(int.parse().unwrap_or(0)), frac)
+}
+
+#[cfg(test)]
+mod filter_and_position_tests {
+    use super::*;
+
+    fn bnc(value: &str) -> QuerySpec {
+        QuerySpec { corpus: "BNC".into(), field: "word".into(), value: value.into(), ignore_case: true, ..Default::default() }
+    }
+
+    #[test]
+    fn several_filters_are_anded() {
+        let mut q = bnc("you");
+        q.filters = vec![
+            MetaFilter { attr: "text_text_type".into(), op: "is".into(), value: "SPOKEN DEMOGRAPHIC|SPOKEN CONTEXT".into(), ..Default::default() },
+            MetaFilter { attr: "text_respondent_age".into(), op: "not".into(), value: "unknown".into(), ..Default::default() },
+            MetaFilter { attr: "text_publication_date".into(), op: "years".into(), from: Some(1990), to: Some(1992), ..Default::default() },
+        ];
+        let e = build_query(&q).unwrap().expression;
+        assert_eq!(
+            e,
+            r#"[word="you" %c] :: match.text_text_type="(SPOKEN DEMOGRAPHIC|SPOKEN CONTEXT)" & match.text_respondent_age!="unknown" & match.text_publication_date="(1990|1991|1992).*""#
+        );
+    }
+
+    #[test]
+    fn filter_validation() {
+        let mut q = bnc("you");
+        q.filters = vec![MetaFilter { attr: "nope".into(), op: "is".into(), value: "x".into(), ..Default::default() }];
+        assert!(build_query(&q).is_err());
+        q.filters = vec![MetaFilter { attr: "text_text_type".into(), op: "is".into(), value: "a\"; drop".into(), ..Default::default() }];
+        assert!(build_query(&q).is_err());
+        q.filters = vec![MetaFilter { attr: "text_text_type".into(), op: "years".into(), from: Some(2000), to: Some(1990), ..Default::default() }];
+        assert!(build_query(&q).is_err());
+        q.filters = vec![MetaFilter { attr: "text_text_type".into(), op: "is".into(), value: "W.ac".into(), ..Default::default() }];
+        assert!(build_query(&q).unwrap().expression.ends_with(r#"match.text_text_type="W\.ac""#));
+    }
+
+    #[test]
+    fn legacy_single_filter_unchanged() {
+        let mut q = bnc("go");
+        q.meta_attr = "text_text_type".into();
+        q.meta_value = "SPOKEN".into();
+        assert_eq!(build_query(&q).unwrap().expression, r#"[word="go" %c] :: match.text_text_type="SPOKEN""#);
+    }
+
+    #[test]
+    fn count_any_word_of_a_sequence() {
+        let mut q = bnc("you");
+        q.next = vec![
+            NextToken { value: "and".into(), ..Default::default() },
+            NextToken { value: "not".into(), optional: true, ..Default::default() },
+            NextToken { value: "I|me".into(), gap: 1, ..Default::default() },
+        ];
+        let req = |pos: &str| FrequencyRequest { query: q.clone(), group_field: "word".into(), group_position: pos.into() };
+        let p = frequency_payload(&req("word:3")).unwrap();
+        assert_eq!(p["group_anchor"], "target");
+        assert!(p["expression"].as_str().unwrap().contains(r#" @[word="not" %c]?"#));
+        assert_eq!(frequency_payload(&req("word:1")).unwrap()["group_anchor"], "match");
+        assert_eq!(frequency_payload(&req("word:4")).unwrap()["group_anchor"], "matchend");
+        assert!(!frequency_payload(&req("word:4")).unwrap()["expression"].as_str().unwrap().contains('@'));
+        assert!(frequency_payload(&req("word:9")).is_err());
+        let ph = frequency_payload(&req("phrase")).unwrap();
+        assert_eq!((ph["group_anchor"].as_str(), ph["fold_case"].as_bool()), (Some("phrase"), Some(true)));
+    }
 }
 
 #[cfg(test)]
@@ -664,6 +875,7 @@ mod tests {
             value: "jury".into(),
             ignore_case: true,
             query: None,
+            filters: Default::default(),
         };
         let p = compare_payload(&r).unwrap();
         assert_eq!(p["compiled"].as_array().unwrap().len(), 2);
@@ -719,12 +931,20 @@ mod feature_tests {
         let q = QuerySpec { field: "word".into(), value: "you".into(), ignore_case: true, sentence_only: true,
             next: vec![NextToken { value: "and".into(), ..Default::default() }, NextToken { value: "I|me".into(), ..Default::default() }],
             meta_attr: "text_genre".into(), meta_value: "x".into(), ..Default::default() };
-        let r = CompareRequest { corpora: vec!["BROWN-LEGACY".into(), "LOB-LEGACY".into(), "FLOB-LEGACY".into()], field: String::new(), value: String::new(), ignore_case: false, query: Some(q) };
+        let r = CompareRequest { corpora: vec!["BROWN-LEGACY".into(), "LOB-LEGACY".into(), "FLOB-LEGACY".into()], field: String::new(), value: String::new(), ignore_case: false, query: Some(q), filters: Default::default() };
         let p = compare_payload(&r).unwrap();
         let c = p["compiled"].as_array().unwrap();
         assert_eq!(c.len(), 3);
         assert!(c[0][1].as_str().unwrap().contains(r#"[word="(I|me)" %c]"#));
         assert!(!c[0][1].as_str().unwrap().contains("::"));
+        // Per-corpus filters travel with the corpus and add a subcorpus spec.
+        let mut f = r.clone();
+        f.filters.insert("LOB-LEGACY".into(), vec![MetaFilter { attr: "file_id".into(), op: "is".into(), value: "A01|A02".into(), ..Default::default() }]);
+        let p = compare_payload(&f).unwrap();
+        let c = p["compiled"].as_array().unwrap();
+        assert_eq!(c[0].as_array().unwrap().len(), 3);
+        assert!(c[1][1].as_str().unwrap().ends_with(r#":: match.file_id="(A01|A02)""#));
+        assert_eq!(c[1][3][0]["values"], json!(["A01", "A02"]));
         let dup = CompareRequest { corpora: vec!["BNC".into(), "BNC".into()], ..r };
         assert!(compare_payload(&dup).is_err());
     }

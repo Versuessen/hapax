@@ -159,7 +159,7 @@ export function CommandPalette() {
       orderedCorpora(info).filter((c) => info.corpora[c].available !== false).forEach((c) =>
         out.push({
           group: "Corpora", label: c, dot: corpusColor(c), meta: compact(info.corpora[c].tokens),
-          run: () => { if (c !== query.corpus) { setQuery({ ...query, corpus: c, meta_attr: "", meta_value: "" }); setSearch(null); } setScreen("search"); },
+          run: () => { if (c !== query.corpus) { setQuery({ ...query, corpus: c, meta_attr: "", meta_value: "", filters: [] }); setSearch(null); } setScreen("search"); },
         })
       );
     (recent || []).slice(0, 10).forEach((r) =>

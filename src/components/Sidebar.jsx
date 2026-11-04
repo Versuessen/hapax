@@ -34,7 +34,7 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
 
   const pickCorpus = (name) => {
     if (name !== query.corpus) {
-      setQuery({ ...query, corpus: name, meta_attr: "", meta_value: "" });
+      setQuery({ ...query, corpus: name, meta_attr: "", meta_value: "", filters: [] });
       setSearch(null);
     }
     if (!["search", "corpus", "overview"].includes(screen)) setScreen("search");

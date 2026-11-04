@@ -27,14 +27,15 @@ export const GUIDES = {
     purpose: "Find every occurrence of a word, tag or phrase in one corpus and read each one in context.",
     steps: [
       "Choose what to match in Find by: the written word, all forms of a word (lexeme), or an annotation such as a part-of-speech tag.",
-      "Type the value. For a phrase, select Add word for each following word; I|me matches either form.",
-      "Select Search (Ctrl+Enter). The count covers the whole corpus; the list shows one page at a time.",
-      "Sort or page through the lines, select one to read it in full, and add useful pages to the evidence notebook.",
+      "Type the value. For a phrase, select Add word for each following word; I|me matches either form. All forms finds every inflection of the word (bigger, biggest).",
+      "To search only part of the corpus, select Add filter under Only in documents where — for example spoken texts, a speaker group or a range of years. Every filter must hold.",
+      "Select Search (Ctrl+Enter). The count covers the whole (filtered) corpus; the list shows one page at a time.",
     ],
     notes: [
       "Values match exactly. Use Ignore case for capitalisation and Regex (under Advanced) for patterns.",
+      "In a filter, several values (picked from the list, or typed with |) mean any of them. A year range matches values that start with a year in that range, so “1985-1993” counts as 1985.",
       "The CQP shown under the form is exactly what runs on the server. Copy the terminal version to repeat the search in your own SSH session.",
-      "Per-million rates divide by all tokens in the corpus, punctuation included.",
+      "Per-million rates on this page divide by all tokens in the corpus, punctuation included — also when filters are set. Use Spread across texts or Compare corpora for rates of a filtered part.",
     ],
   },
 
@@ -66,14 +67,17 @@ export const GUIDES = {
 
   "analyse/counts": {
     title: "Count by annotation",
-    purpose: "Break all matches of the current search down by an annotation, for example which parts of speech or word forms occur.",
+    purpose: "Break all matches of the current search down by an annotation — which word forms, parts of speech or whole phrases occur — in one corpus or several side by side.",
     steps: [
-      "Run a search first; this page analyses its results.",
-      "In Group by, choose the annotation. In Which token to count, choose the first or last word of the match, or the word just before or after it.",
-      "Select Count. Select a row to see what the code means.",
+      "Run a search first; this page analyses its results, including its filters.",
+      "In Count, choose what to count: for a phrase, any of its words (Word 3 · I|me) or the whole matched phrase; for any search, also the word just before or after.",
+      "In Grouped by, choose the annotation, for example Written word or Part of speech.",
+      "To compare, select corpora under Also count in and give each its own filters (for example only spoken data). Then select Count.",
     ],
     notes: [
-      "Counts cover every match on the server, not only the page you viewed.",
+      "Counts cover every match on the server, not only the page you viewed. Whole-phrase counts use the first 200,000 matches.",
+      "Shares are within each corpus, so corpora of different sizes can be compared directly.",
+      "An optional word that is missing from a match is counted under (none).",
       "Annotation comes from automatic taggers and contains errors. Read examples before reporting a category.",
     ],
   },
@@ -102,6 +106,7 @@ export const GUIDES = {
     ],
     notes: [
       "Each rate is computed from that group's own size, so a small genre is not hidden by a large one.",
+      "When the search has filters, group sizes count only the filtered documents, provided the attribute is on the same level as the filters (for example all text attributes). Otherwise a notice says the rates are too low.",
       "Groups below the size threshold are dimmed: a few matches more or less changes their rate a lot.",
       "In Brown, LOB, FLOB and Frown, file ids are grouped into the standard A–R genre categories.",
     ],
@@ -109,16 +114,17 @@ export const GUIDES = {
 
   "analyse/compare": {
     title: "Compare corpora",
-    purpose: "Run the same search in two to six corpora and compare how often it occurs.",
+    purpose: "Run the same search in two to six corpora — or in filtered parts of them — and compare how often it occurs.",
     steps: [
       "Select the corpora. The first one you select is the reference.",
-      "Build the search, or select Use current search.",
+      "To compare parts, select Filter next to a corpus and add its filters, for example only spoken texts from 1990–1994. Each corpus has its own, because metadata differs between corpora.",
+      "Build the search, or select Use current search (its filters go to its own corpus).",
       "Select Compare.",
     ],
     notes: [
+      "For a filtered corpus, Tokens searched is the size of the filtered part and the rate divides by it. If that size cannot be measured (filters on differently divided attributes), a notice says so.",
       "LL is log-likelihood (G²) against the reference. 3.84, 6.63 and 10.83 correspond to p < .05, .01 and .001.",
       "LL assumes every token is independent, which overstates certainty for features concentrated in a few texts.",
-      "Corpora differ in tagset, genre and period. Document filters are not applied here because metadata differs between corpora.",
     ],
   },
 

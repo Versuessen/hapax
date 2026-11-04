@@ -35,7 +35,7 @@ try:
 
     def safe_group_anchor():
         anchor = req.get("group_anchor", "match")
-        if anchor not in ("match", "matchend", "match[-1]", "matchend[1]"):
+        if anchor not in ("match", "matchend", "match[-1]", "matchend[1]", "target"):
             fail("Unsupported group position")
         return anchor
 
@@ -57,6 +57,45 @@ try:
         if len(found) != 1:
             fail("Unexpected CQP match count: " + repr(s[:3]))
         return found[0]
+
+    region_cache = {}
+    def regions(corpus, attr):
+        """[(start, end, value)] of one structural attribute, decoded once per request."""
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", attr):
+            fail("Unsupported metadata attribute")
+        key = (corpus, attr)
+        if key not in region_cache:
+            out = []
+            for row in call([BIN+"cwb-s-decode", "-r", REG, corpus, "-S", attr], timeout=35).splitlines():
+                cols = row.split("\t", 2)
+                if len(cols) != 3: continue
+                try: out.append((int(cols[0]), int(cols[1]), cols[2]))
+                except ValueError: continue
+            region_cache[key] = out
+        return region_cache[key]
+
+    def filter_ok(f, value):
+        kind = f.get("op") or "is"
+        if kind == "years":
+            m = re.match(r"(\d{4})", value)
+            return bool(m) and int(f["from"]) <= int(m.group(1)) <= int(f["to"])
+        hit = value in set(f.get("values", []))
+        return hit if kind == "is" else not hit
+
+    def kept_regions(corpus, filters):
+        """Region spans (start, end) that satisfy every filter, or None when the
+        filters sit on differently segmented attributes (no common regions)."""
+        keep = None
+        for f in filters:
+            spans = {(s, e) for s, e, v in regions(corpus, f["attr"]) if filter_ok(f, v)}
+            every = {(s, e) for s, e, v in regions(corpus, f["attr"])}
+            if keep is None:
+                keep, frame = spans, every
+            else:
+                if every != frame:
+                    return None
+                keep &= spans
+        return keep
 
     if op == "health":
         cp = call([BIN + "cqp", "-v"], timeout=15)
@@ -84,11 +123,25 @@ try:
                 rows = sections(cqp(script + sort_cmd.get(sort_key, "") + "tabulate GUIQuery %d %d %s;\n.EOL.;\n" % (off,end,specification)))[0]
             print(json.dumps({"ok": True, "total":total, "rows":rows}, ensure_ascii=False))
         elif op == "frequencies":
+            counted = total
             if total == 0:
                 lines = []
+            elif req.get("group_anchor") == "phrase":
+                # Whole matched span: tabulate the attribute over match..matchend and count here.
+                field = req["group_field"]
+                if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", field):
+                    fail("Unsupported attribute")
+                counted = min(total, int(req.get("cap", 200000)))
+                rows = sections(cqp(script + "tabulate GUIQuery 0 %d match..matchend %s;\n.EOL.;\n" % (counted-1, field)))[0]
+                tally = {}
+                for row in rows:
+                    key = " ".join(row.split())
+                    if req.get("fold_case"): key = key.lower()
+                    tally[key] = tally.get(key, 0) + 1
+                lines = ["%s\t%d" % (k, n) for k, n in sorted(tally.items(), key=lambda kv: -kv[1])]
             else:
                 lines = sections(cqp(script + "group GUIQuery " + safe_group_anchor() + " " + req["group_field"] + ";\n.EOL.;\n"))[0]
-            print(json.dumps({"ok": True, "total":total, "lines":lines[:2000], "truncated":len(lines)>2000}, ensure_ascii=False))
+            print(json.dumps({"ok": True, "total":total, "counted":counted, "lines":lines[:2000], "truncated":len(lines)>2000}, ensure_ascii=False))
         else:
             num = min(total, int(req["sample_limit"]))
             csvlines = ""
@@ -255,11 +308,20 @@ try:
                 if pipe is not None: pipe.close()
     elif op == "compare":
         observed=[]
-        for corpus,expression,base in req['compiled']:
+        for item in req['compiled']:
+            corpus, expression, base = item[0], item[1], item[2]
+            filters = item[3] if len(item) > 3 else []
             script='set PrettyPrint off;\n'+corpus+';\nGUIQuery = '+expression+';\n'
             total=size_of(script)
-            observed.append({'corpus':corpus,'total':total,'tokens':base,
-                             'per_million_tokens':round(total*1000000/base,4)})
+            sub = None
+            if filters:
+                kept = kept_regions(corpus, filters)
+                if kept is not None:
+                    sub = sum(e - s + 1 for s, e in kept)
+            tokens = sub if sub is not None else base
+            observed.append({'corpus':corpus,'total':total,'tokens':tokens,
+                             'subcorpus': bool(filters), 'subcorpus_measured': sub is not None,
+                             'per_million_tokens':round(total*1000000/tokens,4) if tokens else 0})
         print(json.dumps({'ok':True,'results':observed},ensure_ascii=False))
     elif op == "lexicon":
         raw = call([BIN+"cwb-lexdecode", "-r", REG, "-f", "-P", req["field"], req["corpus"]], timeout=35)
@@ -291,18 +353,27 @@ try:
         if n:
             for line in sections(cqp(script + "tabulate GUIQuery 0 %d match %s;\n.EOL.;\n" % (n-1, attr)))[0]:
                 hits[line] = hits.get(line, 0) + 1
-        raw = call([BIN+"cwb-s-decode", "-r", REG, req["corpus"], "-S", attr], timeout=35)
+        filters = req.get("filters") or []
+        kept = kept_regions(req["corpus"], filters) if filters else None
+        aligned = True
+        if filters and kept is not None:
+            # Group sizes count only regions that pass the filters, so rates use the
+            # same subcorpus as the matches. Needs the grouping attribute to share the
+            # filters' segmentation (e.g. all text_* attributes).
+            if {(s, e) for s, e, v in regions(req["corpus"], attr)} != {(s, e) for s, e, v in regions(req["corpus"], filters[0]["attr"])}:
+                aligned = False
+        elif filters:
+            aligned = False
         sizes = {}
-        for row in raw.splitlines():
-            cols = row.split("\t", 2)
-            if len(cols) != 3: continue
-            try: size = int(cols[1]) - int(cols[0]) + 1
-            except ValueError: continue
-            r = sizes.setdefault(cols[2], [0, 0]); r[0] += 1; r[1] += size
+        for s0, e0, val in regions(req["corpus"], attr):
+            if filters and aligned and (s0, e0) not in kept:
+                continue
+            r = sizes.setdefault(val, [0, 0]); r[0] += 1; r[1] += e0 - s0 + 1
         vals = [[v, hits.get(v, 0), s[0], s[1]] for v, s in sizes.items()]
         vals += [[v, h, 0, 0] for v, h in hits.items() if v not in sizes]
         vals.sort(key=lambda r: (-r[1], -r[3]))
-        print(json.dumps({"ok": True, "total": total, "counted": n, "values": vals[:1000], "truncated": len(vals) > 1000}, ensure_ascii=False))
+        print(json.dumps({"ok": True, "total": total, "counted": n, "values": vals[:1000], "truncated": len(vals) > 1000,
+                          "sizes_filtered": bool(filters) and aligned}, ensure_ascii=False))
     elif op == "registry":
         # Which corpora exist right now. Registry files are small text files;
         # only corpora the app does not already know are described in detail.

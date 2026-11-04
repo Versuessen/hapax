@@ -122,7 +122,23 @@ function compile(q) {
     e += (gap ? ` []{0,${gap}}` : "") + ` [${f2}="${alt(t.value)}"${q.ignore_case && ["word", "lemma", "hw"].includes(f2) ? " %c" : ""}]${t.optional ? "?" : ""}`;
   });
   if (q.sentence_only) e += " within s";
-  if (q.meta_attr && q.meta_value?.trim()) e += ` :: match.${q.meta_attr}="${q.meta_value.trim()}"`;
+  const cons = [];
+  if (q.meta_attr && q.meta_value?.trim()) cons.push(`match.${q.meta_attr}="${q.meta_value.trim()}"`);
+  for (const f of q.filters || []) {
+    if (!f.attr) continue;
+    if (!info.metadata.includes(f.attr)) throw { kind: "validation", message: `${q.corpus} has no metadata attribute '${f.attr}'` };
+    if (f.op === "years") {
+      const a = Number(f.from ?? 1000), b = Number(f.to ?? 2100);
+      if (!(a >= 1000 && b <= 2100 && a <= b)) throw { kind: "validation", message: `Filter on ${f.attr}: enter a year range between 1000 and 2100, earliest first` };
+      cons.push(`match.${f.attr}="(${Array.from({ length: b - a + 1 }, (_, i) => a + i).join("|")}).*"`);
+    } else {
+      const vals = String(f.value || "").split("|").map((v) => v.trim()).filter(Boolean);
+      if (!vals.length) throw { kind: "validation", message: `Filter on ${f.attr}: enter a value` };
+      const v = vals.length > 1 ? `(${vals.map((x) => x.replace(/([.\[\]{}()*+?^$|])/g, "\\$1")).join("|")})` : vals[0].replace(/([.\[\]{}()*+?^$|])/g, "\\$1");
+      cons.push(`match.${f.attr}${f.op === "not" ? "!=" : "="}"${v}"`);
+    }
+  }
+  if (cons.length) e += ` :: ${cons.join(" & ")}`;
   return { corpus: q.corpus, expression: e, field };
 }
 
@@ -265,9 +281,21 @@ const remote = {
   },
   run_frequencies: ({ request }) => {
     compile(request);
-    const vals = request.group_field === "pos" ? [["NN", 61, "Singular or mass noun"], ["NN-TL", 4, "Unknown POS tag: NN-TL"], ["NN-HL", 2, "Unknown POS tag: NN-HL"]]
-      : request.group_field === "word" ? [["jury", 58, null], ["Jury", 7, null], ["JURY", 2, null]] : [["SUBST", 67, "Substantive"]];
-    return { total: totalFor(request), truncated: false, groups: vals.map(([value, count, m]) => ({ value, count, meaning: m || explain(request.corpus, request.group_field, value).short })) };
+    const total = totalFor(request);
+    const pos = request.group_position || "first";
+    // Deterministic sample counts that sum to the total, shaped by what is counted.
+    const split = (labels) => labels.map((v, i) => [v, Math.max(1, Math.round(total * [0.62, 0.27, 0.08, 0.03][i]))]);
+    let vals;
+    if (pos === "phrase") vals = split(["you and me", "you and i", "you and your", "you and him"]);
+    else if (pos.startsWith("word:")) {
+      const n = Number(pos.slice(5));
+      const words = [request.value, ...(request.next || []).map((t) => t.value)];
+      const alts = String(words[n - 1] || "x").split("|").map((s) => s.trim().toLowerCase());
+      vals = split(alts.length > 1 ? alts : [alts[0], alts[0][0].toUpperCase() + alts[0].slice(1)]);
+    } else if (request.group_field === "pos") vals = [["NN", 61], ["NN-TL", 4], ["NN-HL", 2]];
+    else if (request.group_field === "word") vals = [["jury", 58], ["Jury", 7], ["JURY", 2]];
+    else vals = [["SUBST", 67]];
+    return { total, counted: total, truncated: false, groups: vals.map(([value, count]) => ({ value, count, meaning: explain(request.corpus, request.group_field, value).short })) };
   },
   run_collocates: ({ request }) => {
     compile(request);
@@ -290,7 +318,15 @@ const remote = {
   run_metadata: ({ request }) => {
     const n = corpora[request.corpus].structural[request.attribute] || 0;
     if (n > 10000) throw { kind: "validation", message: "That attribute covers over 10,000 regions. Enter a filter value manually to avoid loading a very large metadata index on the shared server." };
-    const vals = request.attribute === "text_genre" ? ["Narrative fiction", "Treatise", "Letters", "Drama", "Other"] : ["A01", "A02", "B01", "C17", "J22"];
+    const SAMPLE = {
+      text_text_type: ["WRITTEN BOOKS AND PERIODICALS", "SPOKEN DEMOGRAPHIC", "SPOKEN CONTEXT-GOVERNED", "WRITTEN MISCELLANEOUS", "WRITTEN-TO-BE-SPOKEN"],
+      text_publication_date: ["1985-1993", "1991", "1992", "1993", "1989", "1976", "1960-1974"],
+      text_respondent_age: ["35-44", "25-34", "45-59", "60+", "15-24", "0-14", "unknown"],
+      text_respondent_class: ["AB", "C1", "C2", "DE", "unknown"],
+      text_rec_year: ["2012", "2013", "2014", "2015", "2016"],
+      text_genre: ["Narrative fiction", "Treatise", "Letters", "Drama", "Other"],
+    };
+    const vals = SAMPLE[request.attribute] || ["A01", "A02", "B01", "C17", "J22"];
     return { truncated: false, groups: vals.map((value, i) => ({ value, regions: Math.max(1, Math.round(n / (i + 2.2))), tokens: Math.round(9_100_000 / (i + 1.4)) })) };
   },
   run_distribution: ({ request }) => {
@@ -299,7 +335,7 @@ const remote = {
     const total = totalFor(request);
     const vals = request.attribute === "text_genre" ? ["Narrative fiction", "Treatise", "Letters", "Drama", "Other"] : ["A01", "A02", "B01", "C17", "J22", "K05", "L11", "N03"];
     const rows = vals.map((value, i) => { const tokens = Math.round(900_000 / (i + 1.4)); const hits = Math.round((total / vals.length) * (1.6 - i * 0.15)); return { value, hits: Math.max(0, hits), regions: Math.max(1, Math.round(n / (i + 2.2))), tokens, per_million: Number(((Math.max(0, hits) * 1e6) / tokens).toFixed(2)) }; });
-    return { total, counted: total, rows, truncated: false };
+    return { total, counted: total, rows, truncated: false, sizes_filtered: (request.filters || []).length > 0 || !!request.meta_value };
   },
   run_syntax: ({ request }) => {
     const tokens = SYNTAX.map(([word, pos, lemma, id, head, rel], i) => ({ position: request.position - 2 + i, word, pos, lemma, id, head, rel }));
@@ -307,7 +343,7 @@ const remote = {
   },
   run_compare: ({ request }) => {
     if (new Set(request.corpora).size !== request.corpora.length || request.corpora.length < 2) throw { kind: "validation", message: "Select 2–6 different corpora" };
-    return { results: request.corpora.map((c) => { const total = totalFor({ ...(request.query || request), corpus: c }); const tokens = corpora[c].tokens; return { corpus: c, total, tokens, per_million_tokens: Number(((total * 1e6) / tokens).toFixed(4)) }; }) };
+    return { results: request.corpora.map((c) => { const filtered = (request.filters?.[c] || []).length > 0; const total = Math.round(totalFor({ ...(request.query || request), corpus: c }) * (filtered ? 0.18 : 1)); const tokens = Math.round(corpora[c].tokens * (filtered ? 0.1 : 1)); return { corpus: c, total, tokens, subcorpus: filtered, subcorpus_measured: filtered, per_million_tokens: Number(((total * 1e6) / tokens).toFixed(4)) }; }) };
   },
   run_workflow: ({ request }) => {
     const c = compilePlan(request.plan);

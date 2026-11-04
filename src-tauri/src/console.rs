@@ -253,7 +253,13 @@ pub fn cqp_commands(p: &Value) -> String {
                 tabulate_spec(p)
             )
         }
-        "frequencies" => format!(
+        "frequencies" if s(p, "group_anchor") == "phrase" => format!(
+            "# {cqp}\n{}\ntabulate GUIQuery 0 <min(size, {})-1> match..matchend {};\n# identical phrases are counted by the worker{}",
+            head(s(p, "corpus"), s(p, "expression"), ""),
+            n(p, "cap"),
+            s(p, "group_field"),
+            if p["fold_case"].as_bool() == Some(true) { " (case-folded)" } else { "" }
+        ),        "frequencies" => format!(
             "# {cqp}\n{}\ngroup GUIQuery {} {};",
             head(s(p, "corpus"), s(p, "expression"), ""),
             s(p, "group_anchor"),

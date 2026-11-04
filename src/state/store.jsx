@@ -8,12 +8,12 @@ export const useApp = () => useContext(Ctx);
 
 export const EMPTY_QUERY = {
   corpus: "BROWN-LEGACY", field: "word", value: "", regex: false, ignore_case: true,
-  second_field: "word", second_value: "", gap: 0, sentence_only: false, meta_attr: "", meta_value: "",
+  second_field: "word", second_value: "", gap: 0, sentence_only: false, meta_attr: "", meta_value: "", filters: [],
 };
 
 /** Stable key of everything that changes a result (F7: stale-result guard). */
 export const queryKey = (q) =>
-  JSON.stringify([q.corpus, q.field, q.value, !!q.regex, !!q.ignore_case, q.second_field, q.second_value, Number(q.gap || 0), !!q.sentence_only, q.meta_attr, q.meta_value, (q.next || []).map((t) => [t.field, t.value, Number(t.gap || 0), !!t.optional])]);
+  JSON.stringify([q.corpus, q.field, q.value, !!q.regex, !!q.ignore_case, q.second_field, q.second_value, Number(q.gap || 0), !!q.sentence_only, q.meta_attr, q.meta_value, (q.next || []).map((t) => [t.field, t.value, Number(t.gap || 0), !!t.optional]), (q.filters || []).map((f) => [f.attr, f.op, f.value, f.from ?? null, f.to ?? null])]);
 
 let toastSeq = 0;
 
@@ -145,6 +145,7 @@ export function AppProvider({ children }) {
         return undefined;
       }
       const started = performance.now();
+      busyRef.current = { label, startedAt: started }; // synchronous, so back-to-back runs are not refused
       setBusy({ label, startedAt: started });
       try {
         const out = await invoke(cmd, args);
@@ -161,6 +162,7 @@ export function AppProvider({ children }) {
         if (quiet) throw e;
         return undefined;
       } finally {
+        busyRef.current = null;
         setBusy(null);
       }
     },
@@ -178,7 +180,7 @@ export function AppProvider({ children }) {
       setQuery((q) => {
         if (d.corpora[q.corpus]?.available !== false) return q;
         const first = Object.keys(d.corpora).find((c) => d.corpora[c].available && d.corpora[c].encoding !== "<unsupported>");
-        return first ? { ...q, corpus: first, meta_attr: "", meta_value: "" } : q;
+        return first ? { ...q, corpus: first, meta_attr: "", meta_value: "", filters: [] } : q;
       });
       const parts = [];
       if (d.added.length) parts.push(`new on the server: ${d.added.join(", ")}`);

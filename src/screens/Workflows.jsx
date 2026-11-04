@@ -1,3 +1,5 @@
+import { describeFilter, describeFilters, filtersOf } from "../lib/filters.js";
+import { FilterEditor } from "../components/FilterEditor.jsx";
 import { Flag } from "../components/Flag.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { describeFollowers } from "../lib/sequence.js";
@@ -27,7 +29,7 @@ export const DELIVER_EXAMPLE = {
 function describe(s, i) {
   if (s.kind === "search") {
     const q = s.query;
-    return `Find ${q.field} “${q.value}”${q.ignore_case ? " (any case)" : ""}${describeFollowers(q).map((d) => `, ${d}`).join("")}${q.sentence_only ? ", same sentence" : ""}${q.meta_attr && q.meta_value ? `, where ${q.meta_attr} = ${q.meta_value}` : ""}`;
+    return `Find ${q.field} “${q.value}”${q.ignore_case ? " (any case)" : ""}${describeFollowers(q).map((d) => `, ${d}`).join("")}${q.sentence_only ? ", same sentence" : ""}${describeFilters(q).map((d) => `, where ${d}`).join("")}`;
   }
   if (s.kind === "refine")
     return `${s.mode === "exclude" ? "Remove" : "Keep only"} matches from step ${s.source} whose ${s.anchor === "matchend" ? "last" : "first"} token has ${s.field} = “${s.value}”${s.ignore_case ? " (any case)" : ""}`;
@@ -177,7 +179,7 @@ function Builder() {
           {!wf.steps.length && (
             <>
               <Button variant="ghost" icon={Lightbulb} onClick={() => update({ corpus: DELIVER_EXAMPLE.corpus, steps: DELIVER_EXAMPLE.steps })}>Example: adverbs after “deliver”</Button>
-              {search && <Button variant="ghost" icon={SearchIcon} onClick={() => { const { corpus, ...q } = search.request; update({ corpus, steps: [{ kind: "search", query: { field: q.field, value: q.value, regex: q.regex, ignore_case: q.ignore_case, second_field: q.second_field, second_value: q.second_value, gap: q.gap, next: q.next || [], sentence_only: q.sentence_only, meta_attr: q.meta_attr, meta_value: q.meta_value } }] }); }}>Start from current search</Button>}
+              {search && <Button variant="ghost" icon={SearchIcon} onClick={() => { const { corpus, ...q } = search.request; update({ corpus, steps: [{ kind: "search", query: { field: q.field, value: q.value, regex: q.regex, ignore_case: q.ignore_case, second_field: q.second_field, second_value: q.second_value, gap: q.gap, next: q.next || [], sentence_only: q.sentence_only, meta_attr: q.meta_attr, meta_value: q.meta_value, filters: q.filters || [] } }] }); }}>Start from current search</Button>}
             </>
           )}
         </div>
@@ -308,12 +310,15 @@ function Compare() {
   const { info, run, toast, log, busy, query, search } = useApp();
   const names = orderedCorpora(info);
   const [corpora, setCorpora] = useState(["BROWN-LEGACY", "LOB-LEGACY"]);
-  const [q, setQ] = useState(() => ({ ...query, corpus: "BROWN-LEGACY", meta_attr: "", meta_value: "", value: query.value || "jury" }));
+  const [q, setQ] = useState(() => ({ ...query, corpus: "BROWN-LEGACY", meta_attr: "", meta_value: "", filters: [], value: query.value || "jury" }));
+  const [filters, setFilters] = useState({}); // corpus -> document filters for that corpus
+  const [openFilters, setOpenFilters] = useState(null);
   const [res, setRes] = useState(null);
   const builderQuery = { ...q, corpus: corpora[0] || q.corpus };
   const { error } = useCqpPreview(builderQuery);
   const toggle = (c) => setCorpora((list) => (list.includes(c) ? list.filter((x) => x !== c) : list.length >= 6 ? list : [...list, c]));
-  const request = { corpora, query: builderQuery };
+  const active = Object.fromEntries(corpora.map((c) => [c, (filters[c] || []).filter((f) => f.attr)]).filter(([, l]) => l.length));
+  const request = { corpora, query: builderQuery, filters: active };
   const go = async () => {
     const out = await run(`Comparing ${corpora.length} corpora`, "run_compare", { request });
     if (out) {
@@ -343,29 +348,72 @@ function Compare() {
                 );
               })}
             </div>
+            {corpora.length > 0 && <div className="section-label" style={{ marginTop: 14 }}>Only in documents where</div>}
+            {corpora.length > 0 && (
+              <ul className="cmp-filters" aria-label="Document filters per corpus">
+                {corpora.map((c) => {
+                  const list = filters[c] || [];
+                  const desc = list.map(describeFilter).filter(Boolean);
+                  return (
+                    <li key={c}>
+                      <div className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
+                        <span style={{ minWidth: 130, fontWeight: 500 }}>{c}</span>
+                        <span className="muted" style={{ flex: 1, minWidth: 0, fontSize: 12.5 }}>{desc.length ? desc.join(" · ") : "whole corpus"}</span>
+                        <button type="button" className="btn btn--ghost" aria-expanded={openFilters === c} onClick={() => setOpenFilters(openFilters === c ? null : c)}>
+                          {list.length ? "Edit filters" : "Filter"}
+                        </button>
+                      </div>
+                      {openFilters === c && (
+                        <div style={{ padding: "8px 0 4px" }}>
+                          <FilterEditor corpus={c} filters={list} idPrefix={`cf-${c}`} compact onChange={(l) => setFilters((m) => ({ ...m, [c]: l }))} />
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
-          <QueryBuilder query={builderQuery} onChange={(n) => setQ({ ...n, meta_attr: "", meta_value: "" })} onSubmit={go} showCorpus={false} idPrefix="cmp" />
+          <QueryBuilder query={builderQuery} onChange={(n) => setQ({ ...n, meta_attr: "", meta_value: "", filters: [] })} onSubmit={go} showCorpus={false} showFilters={false} idPrefix="cmp" />
           {error && <Notice tone="warn">{error}</Notice>}
           <div className="row">
-            {search?.request && <Button variant="ghost" icon={SearchIcon} onClick={() => { const { offset, limit, context, sort, ...sq } = search.request; setQ(sq); if (!corpora.includes(sq.corpus)) setCorpora((l) => [sq.corpus, ...l].slice(0, 6)); }}>Use current search</Button>}
-            <span className="muted" style={{ fontSize: 12 }}>Document filters are not used here — metadata differs between corpora. Fields such as “lexeme” resolve per corpus.</span>
+            {search?.request && <Button variant="ghost" icon={SearchIcon} onClick={() => {
+              const { offset, limit, context, sort, ...sq } = search.request;
+              setQ({ ...sq, meta_attr: "", meta_value: "", filters: [] });
+              if (!corpora.includes(sq.corpus)) setCorpora((l) => [sq.corpus, ...l].slice(0, 6));
+              const own = filtersOf(sq).filter((f) => f.attr);
+              if (own.length) setFilters((m) => ({ ...m, [sq.corpus]: own })); // the search's filters belong to its corpus
+            }}>Use current search</Button>}
+            <span className="muted" style={{ fontSize: 12 }}>Filters are set per corpus, because metadata differs between corpora. Fields such as “lexeme” resolve per corpus.</span>
           </div>
         </div>
         {related && <div style={{ marginTop: 12 }}><Notice tone="warn">BNC-BABY is a subset of the BNC; their rates are not independent evidence.</Notice></div>}
       </Card>
+      {res && rows.some((r) => r.subcorpus && !r.subcorpus_measured) && (
+        <Notice tone="warn">
+          The size of the filtered part could not be measured for {rows.filter((r) => r.subcorpus && !r.subcorpus_measured).map((r) => r.corpus).join(", ")}: its filters use attributes divided into different regions (for example text and utterance). Matches are filtered, but the rate divides by the whole corpus, so it is too low. Filter on one level, such as text attributes only, for a correct rate.
+        </Notice>
+      )}
       {res && (
         <Card flush title={`${rows.length} corpora · reference ${ref?.corpus}`} sub={`${seconds(res.elapsed)} · LL (G²): * p<.05, ** p<.01, *** p<.001 (3.84 / 6.63 / 10.83). Treats tokens as independent; genre, period and tagging differences still limit inference`}
           actions={<Button icon={FileDown} onClick={async () => { const p = await saveDialog({ defaultPath: "corpus_comparison.csv" }); if (p) exportReport(toast, log, "Exported comparison", invoke("export_comparison", { path: p, request: res.req, result: res.data })); }}>Export…</Button>}>
           <div className="table-scroll">
             <table className="table" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-              <thead><tr><th>Corpus</th><th className="num">Matches</th><th className="num">Indexed tokens</th><th style={{ width: "26%" }} /><th className="num">Per million</th><th className="num">× ref</th><th className="num">LL vs ref</th></tr></thead>
+              <thead><tr><th>Corpus</th><th className="num">Matches</th><th className="num" title="Tokens in the corpus, or in its filtered part">Tokens searched</th><th style={{ width: "26%" }} /><th className="num">Per million</th><th className="num">× ref</th><th className="num">LL vs ref</th></tr></thead>
               <tbody>
                 {rows.map((r, i) => {
                   const ll = i && ref ? logLikelihood(r.total, r.tokens, ref.total, ref.tokens) : null;
                   const ratio = i && ref?.per_million_tokens ? r.per_million_tokens / ref.per_million_tokens : null;
                   return (
                     <tr key={r.corpus}>
-                      <td><span className="row" style={{ flexWrap: "nowrap" }}><Flag variety={info?.corpora?.[r.corpus]?.variety} note={info?.corpora?.[r.corpus]?.variety_note} size={14} />{r.corpus}</span></td>
+                      <td>
+                        <span className="row" style={{ flexWrap: "nowrap" }}><Flag variety={info?.corpora?.[r.corpus]?.variety} note={info?.corpora?.[r.corpus]?.variety_note} size={14} />{r.corpus}</span>
+                        {r.subcorpus && (
+                          <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }} title={(res.req.filters[r.corpus] || []).map(describeFilter).join("; ")}>
+                            {r.subcorpus_measured ? "filtered part" : "filtered · rate uses whole corpus"}
+                          </div>
+                        )}
+                      </td>
                       <td className="num">{thousands(r.total)}</td><td className="num">{thousands(r.tokens)}</td>
                       <td><BarCell value={r.per_million_tokens} max={max} color={corpusColor(r.corpus)} /></td>
                       <td className="num">{r.per_million_tokens.toFixed(2)}</td>

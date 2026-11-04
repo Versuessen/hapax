@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Code2, Plus, X } from "lucide-react";
+import { ChevronDown, Code2, Plus, Sparkles, X } from "lucide-react";
+import { clearFilters, filtersOf, withFilters } from "../lib/filters.js";
+import { WORD_CLASSES, hasIrregular, wordForms } from "../lib/inflect.js";
+import { FilterEditor } from "./FilterEditor.jsx";
 import { MAX_NEXT, followersOf, withFollowers } from "../lib/sequence.js";
 import { useApp } from "../state/store.jsx";
 import { invoke } from "../lib/ipc.js";
 import { CORPUS_ORDER, corporaByVariety } from "../nav.js";
-import { Checkbox, Field, ICON, Input, Select } from "./ui.jsx";
+import { Checkbox, Field, ICON, Input, Segmented, Select } from "./ui.jsx";
 
 export const FIELD_LABELS = {
   word: "Written word",
@@ -74,9 +77,11 @@ export function useCqpPreview(query, enabled = true) {
  * Structured query editor. Only allow-listed attributes reach the Rust
  * compiler; nothing typed here is ever sent as raw CQP.
  */
-export function QueryBuilder({ query, onChange, onSubmit, compact = false, showCorpus = true, idPrefix = "q" }) {
+export function QueryBuilder({ query, onChange, onSubmit, compact = false, showCorpus = true, showFilters = true, idPrefix = "q" }) {
   const { info } = useApp();
-  const [advanced, setAdvanced] = useState(!!(query.meta_value || query.regex));
+  const [advanced, setAdvanced] = useState(!!query.regex);
+  const [formsOpen, setFormsOpen] = useState(false);
+  const filters = filtersOf(query);
   const words = followersOf(query);
   const setWords = (list) => onChange(withFollowers(query, list));
   const setWord = (i, patch) => setWords(words.map((w, j) => (j === i ? { ...w, ...patch } : w)));
@@ -102,16 +107,28 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
       <div className="form-grid">
         {showCorpus && (
           <Field label="Corpus" htmlFor={`${idPrefix}-corpus`}>
-            <Select id={`${idPrefix}-corpus`} value={query.corpus} options={corpusOptions(info)} onChange={(e) => onChange({ ...withFollowers(query, words.map((w) => ({ ...w, field: "word" }))), corpus: e.target.value, meta_attr: "", meta_value: "", field: "word" })} />
+            <Select id={`${idPrefix}-corpus`} value={query.corpus} options={corpusOptions(info)} onChange={(e) => onChange({ ...clearFilters(withFollowers(query, words.map((w) => ({ ...w, field: "word" })))), corpus: e.target.value, field: "word" })} />
           </Field>
         )}
         <Field label="Find by" htmlFor={`${idPrefix}-field`}>
           <Select id={`${idPrefix}-field`} value={query.field} options={fieldOptions(ci)} onChange={(e) => set({ field: e.target.value })} />
         </Field>
         <Field label="Value" htmlFor={`${idPrefix}-value`}>
-          <Input id={`${idPrefix}-value`} data-search-term value={query.value} placeholder={field === "pos" ? "e.g. NN1, JJ" : "e.g. jury  ·  I|me for either"} onChange={(e) => set({ value: e.target.value })} spellCheck={false} maxLength={120} />
+          <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
+            <Input id={`${idPrefix}-value`} data-search-term value={query.value} placeholder={field === "pos" ? "e.g. NN1, JJ" : "e.g. jury  ·  I|me for either"} onChange={(e) => set({ value: e.target.value })} spellCheck={false} maxLength={120} style={{ flex: 1 }} />
+            {(query.field === "word" || query.field === "lexeme") && (
+              <button type="button" className="btn btn--ghost" aria-expanded={formsOpen} onClick={() => setFormsOpen((o) => !o)} title="Find every form of this word"
+                disabled={!query.value.trim() || query.value.includes("|") || /\s/.test(query.value.trim())}>
+                <Sparkles {...ICON} size={14} /> All forms
+              </button>
+            )}
+          </div>
         </Field>
       </div>
+
+      {formsOpen && (
+        <FormsHelper query={query} ci={ci} onApply={(patch) => { set(patch); setFormsOpen(false); }} onClose={() => setFormsOpen(false)} />
+      )}
 
       {words.length > 0 && (
         <ol className="seq" aria-label="Following words">
@@ -152,6 +169,11 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
         </span>
       </div>
 
+      {showFilters && <div className="stack" style={{ gap: 8 }}>
+        <div className="section-label">Only in documents where</div>
+        <FilterEditor corpus={query.corpus} filters={filters} idPrefix={`${idPrefix}-f`} onChange={(list) => onChange(withFilters(query, list))} />
+      </div>}
+
       <div className="row" style={{ gap: 18 }}>
         <Checkbox label="Ignore case" checked={query.ignore_case} disabled={!foldable} onChange={(v) => set({ ignore_case: v })} title={foldable ? "" : "Case folding works for word, lemma and headword"} />
         <Checkbox label="Within one sentence" checked={query.sentence_only} disabled={!hasS} onChange={(v) => set({ sentence_only: v })} title={hasS ? "" : "This corpus has no sentence attribute"} />
@@ -164,21 +186,65 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
 
       {advanced && (
         <div className="stack" style={{ gap: 14, paddingTop: 14, borderTop: "1px solid var(--border-subtle)" }}>
-          <div className="form-grid">
-            <Field label="Document filter" htmlFor={`${idPrefix}-ma`}>
-              <Select id={`${idPrefix}-ma`} value={query.meta_attr} options={[["", "No filter"], ...(ci?.metadata || []).map((m) => [m, m])]} onChange={(e) => set({ meta_attr: e.target.value })} />
-            </Field>
-            <Field label="Exact stored value" htmlFor={`${idPrefix}-mv`} hint="List values under Corpora → Contents & metadata">
-              <Input id={`${idPrefix}-mv`} value={query.meta_value} disabled={!query.meta_attr} onChange={(e) => set({ meta_value: e.target.value })} spellCheck={false} maxLength={150} />
-            </Field>
-            <div style={{ alignSelf: "end", minHeight: 40, display: "flex", alignItems: "center" }}>
-              <Checkbox label="Regex" checked={query.regex} onChange={(v) => set({ regex: v })} title="Treat the first value as a CQP regular expression (max 80 characters)" />
-            </div>
+          <div className="row" style={{ gap: 18 }}>
+            <Checkbox label="Regex" checked={query.regex} onChange={(v) => set({ regex: v })} title="Treat the first value as a CQP regular expression (max 80 characters)" />
+            <span className="muted" style={{ fontSize: 12 }}>Treats the first word's value as a CQP regular expression (up to 80 characters). Other values are always matched literally.</span>
           </div>
         </div>
       )}
       <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
     </form>
+  );
+}
+
+/**
+ * "All forms" for the first word. Corpora with a lemma index search the
+ * lexeme exactly; the others get rule-based forms (plus a table of irregular
+ * words and pronouns) that the user reviews before they become alternatives.
+ */
+function FormsHelper({ query, ci, onApply, onClose }) {
+  const [cls, setCls] = useState("adjective");
+  const base = query.value.trim();
+  const generated = wordForms(base, cls);
+  const [off, setOff] = useState(() => new Set());
+  const forms = generated.filter((f) => !off.has(f));
+  return (
+    <div className="forms" role="region" aria-label="All forms of the word">
+      {ci?.lexeme ? (
+        <>
+          <div style={{ fontSize: 13.5 }}>
+            {query.corpus} has a lemma index (<code>{ci.lexeme}</code>), so <strong>All forms (lexeme)</strong> finds every form of
+            “{base}” exactly, including irregular ones. With Ignore case, capitalisation does not matter either.
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <button type="button" className="btn btn--primary" onClick={() => onApply({ field: "lexeme", ignore_case: true })}>Search all forms (lexeme)</button>
+            <button type="button" className="btn btn--ghost" onClick={onClose}>Close</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="row" style={{ gap: 12 }}>
+            <span style={{ fontSize: 13.5, flex: 1, minWidth: 220 }}>
+              {query.corpus} has no lemma index, so Hapax suggests the forms of “{base}”. Select a form to leave it out.
+            </span>
+            {!hasIrregular(base) && <Segmented small value={cls} onChange={(v) => { setCls(v); setOff(new Set()); }} label="Word class" options={WORD_CLASSES} />}
+          </div>
+          <div className="forms__chips">
+            {generated.map((f) => (
+              <button key={f} type="button" className={`chip-toggle${off.has(f) ? "" : " is-on"}`} aria-pressed={!off.has(f)}
+                onClick={() => setOff((s) => { const n = new Set(s); n.has(f) ? n.delete(f) : n.add(f); return n; })}>{f}</button>
+            ))}
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <button type="button" className="btn btn--primary" disabled={!forms.length} onClick={() => onApply({ field: "word", value: forms.join("|"), ignore_case: true, regex: false })}>
+              Search these {forms.length} forms
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+            <span className="muted" style={{ fontSize: 12 }}>Ignore case is switched on. Forms are generated by rule — check them.</span>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

@@ -42,6 +42,10 @@ The name comes from *hapax legomenon*: a word that occurs only once in a corpus.
 **Find examples**
 - Search by written word, all forms of a word (lexeme), part-of-speech tag or any other
   annotation the corpus has.
+- **Filters** on any document or speaker metadata, combined with AND: only spoken texts, only
+  female speakers, only texts from 1990–1994, or all three at once.
+- **All forms of a word** — exact through the lemma index where a corpus has one, and through
+  reviewed, rule-based suggestions (big → bigger, biggest) where it does not.
 - Phrases of up to nine words. Each word can follow directly or within *N* words, can be
   optional, and can list alternatives: `you` → `and` → `I|me`.
 - Sort the whole result on the server by the match, the word before or the word after.
@@ -49,12 +53,14 @@ The name comes from *hapax legomenon*: a word that occurs only once in a corpus.
   as “noun” into each corpus's own tagset.
 
 **Analyse results**
-- **Count by annotation:** break every match down by POS, lemma or word form.
+- **Count by annotation:** break every match down by POS, lemma or word form — counting any word
+  of a phrase or the whole matched phrase, in one corpus or several side by side, each with its
+  own filters.
 - **Nearby words:** positional counts four words either side.
 - **Spread across texts:** matches per genre, period, speaker or file, each normalised by that
   group's own size. Brown-family file ids roll up into the A–R genre categories.
-- **Compare corpora:** run one search in two to six corpora, with per-million rates and
-  log-likelihood against a reference.
+- **Compare corpora:** run one search in two to six corpora or filtered parts of them, with
+  per-million rates (against the filtered size) and log-likelihood against a reference.
 - **Combine searches:** refine results and join them with union, intersection or difference.
 
 <picture>

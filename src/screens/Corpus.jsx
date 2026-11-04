@@ -1,3 +1,4 @@
+import { clearFilters, filtersOf, withFilters } from "../lib/filters.js";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { useEffect, useState } from "react";
 import { Database, Filter, Play } from "lucide-react";
@@ -61,7 +62,9 @@ export default function Corpus() {
     }
   };
   const useAsFilter = (v) => {
-    setQuery({ ...query, corpus: name, meta_attr: values.attr, meta_value: v });
+    // Same corpus: add to the existing filters (AND). Other corpus: start fresh.
+    const base = query.corpus === name ? withFilters(query, filtersOf(query)) : clearFilters({ ...query, corpus: name });
+    setQuery({ ...base, filters: [...(base.filters || []), { attr: values.attr, op: "is", value: v }] });
     setSearch(null);
     setScreen("search");
   };
@@ -88,7 +91,7 @@ export default function Corpus() {
       <div className="grid grid--split" style={{ alignItems: "start" }}>
         <div className="stack">
           <Card title={ci.description} sub={`${ci.variety_note || varietyInfo(ci.variety).label} · ${thousands(ci.tokens)} indexed tokens (incl. punctuation) · encoding ${ci.encoding} · ${corpusFamily(name)?.label}`}
-            actions={<Button variant="primary" disabled={!isSearchable(ci)} onClick={() => { setQuery({ ...query, corpus: name, meta_attr: "", meta_value: "" }); setSearch(null); setScreen("search"); }}>Search this corpus</Button>}>
+            actions={<Button variant="primary" disabled={!isSearchable(ci)} onClick={() => { setQuery({ ...query, corpus: name, meta_attr: "", meta_value: "", filters: [] }); setSearch(null); setScreen("search"); }}>Search this corpus</Button>}>
             <div className="stack" style={{ gap: 16 }}>
               {ci.available === false && <Notice tone="warn">{name} was not in the server's corpus registry when you connected, so it cannot be searched now. The details below are from the app's built-in description.</Notice>}
               {ci.source === "discovered" && <Notice tone="info">{name} was found on the server and is not in Hapax's verified list. Size and attributes were read from the registry; check them before relying on them, and read the corpus documentation for its tagset.</Notice>}

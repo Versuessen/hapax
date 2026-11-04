@@ -612,6 +612,7 @@ pub async fn export_comparison(path: PathBuf, request: CompareRequest, result: C
         "search_type": request.field,
         "query": request.value,
         "full_query": request.query,
+        "filters_per_corpus": request.filters,
         "reference_corpus": request.corpora.first(),
         "ignore_case": request.ignore_case,
         "data": result.results,

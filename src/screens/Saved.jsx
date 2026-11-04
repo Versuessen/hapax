@@ -1,3 +1,4 @@
+import { describeFilters } from "../lib/filters.js";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { describeFollowers } from "../lib/sequence.js";
 import { useState } from "react";
@@ -34,7 +35,7 @@ export default function Saved() {
                       <Chip>{q.corpus}</Chip>
                       <Chip>{q.field || "word"} = {q.value}{q.ignore_case ? " %c" : ""}</Chip>
                       {describeFollowers(q).map((d) => <Chip key={d}>{d}</Chip>)}
-                      {q.meta_attr && q.meta_value && <Chip tone="warn">{q.meta_attr} = {q.meta_value}</Chip>}
+                      {describeFilters(q).map((d) => <Chip key={d} tone="warn">{d}</Chip>)}
                     </div>
                   </div>
                   <div className="row" style={{ flexWrap: "nowrap" }}>
@@ -65,7 +66,7 @@ export default function Saved() {
                       <Chip>{q.corpus}</Chip>
                       <Chip>{q.field || "word"} = {q.value}{q.ignore_case ? " %c" : ""}</Chip>
                       {describeFollowers(q).map((d) => <Chip key={d}>{d}</Chip>)}
-                      {q.meta_attr && q.meta_value && <Chip tone="warn">{q.meta_attr} = {q.meta_value}</Chip>}
+                      {describeFilters(q).map((d) => <Chip key={d} tone="warn">{d}</Chip>)}
                     </div>
                     <div className="mono" style={{ fontSize: 12, color: "var(--text-3)", marginTop: 6 }}>
                       {Number(r.total).toLocaleString()} matches · {new Date(r.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
