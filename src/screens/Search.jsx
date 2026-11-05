@@ -1,4 +1,4 @@
-import { isSearchable } from "../nav.js";
+import { isSearchable, varietyInfo } from "../nav.js";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -9,7 +9,7 @@ import { Button, Card, Dialog, EmptyState, Field, ICON, Input, Notice, Select } 
 import { QueryBuilder, CqpPreview, useCqpPreview } from "../components/QueryBuilder.jsx";
 import { TerminalBlock } from "../components/TerminalBlock.jsx";
 import { Kwic } from "../components/Kwic.jsx";
-import { perMillion, rate, safeFileStem, seconds, thousands } from "../lib/format.js";
+import { perMillion, rate, safeFileStem, seconds, thousands, compact } from "../lib/format.js";
 
 export async function exportReport(toast, log, label, promise) {
   try {
@@ -135,11 +135,12 @@ export default function Search() {
     <div className="page">
       <PageHeader aside={query.corpus} />
 
+      <div className={`search-layout${focus ? " is-focus" : ""}`}>
       {!focus && (
+        <div className="search-layout__query">
         <Card
           title="What do you want to find?"
-          sub={ci ? `${ci.description} · ${thousands(ci.tokens)} indexed tokens` : null}
-          style={{ marginBottom: 16 }}
+          sub={ci ? <span title={ci.description}>{compact(ci.tokens)} tokens · {ci.variety_note || varietyInfo(ci.variety).label}</span> : null}
           actions={
             <>
               <Button icon={BookmarkPlus} onClick={() => { setSaveName(`${query.corpus} — ${query.value}`); setSaveOpen(true); }} disabled={!query.value || !!error}>Save</Button>
@@ -169,7 +170,9 @@ export default function Search() {
             )}
           </div>
         </Card>
+        </div>
       )}
+      <div className="search-layout__results">
 
       {!data ? (
         <Card>
@@ -247,6 +250,9 @@ export default function Search() {
           )}
         </div>
       )}
+
+      </div>
+      </div>
 
       <Dialog open={saveOpen} onClose={() => setSaveOpen(false)} title="Save search definition" text="Saved locally in preferences.json. Results are not stored — the query runs again when restored."
         footer={<><Button onClick={() => setSaveOpen(false)}>Cancel</Button><Button variant="primary" onClick={doSave} disabled={!saveName.trim()}>Save</Button></>}>

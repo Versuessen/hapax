@@ -232,3 +232,29 @@
   .page { padding-left: var(--space-4); padding-right: var(--space-4); }
   .grid--kpi { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ===== Search: query and results side by side when there is room ===========
+   Container query on the page, so the sidebar's width is accounted for:
+   two columns from 1040 px of content (1440 px window with the sidebar,
+   1280 px with it collapsed). The query column sticks and scrolls on its own,
+   so refining and re-running never moves the results out of view. */
+.page { container-type: inline-size; container-name: page; }
+.search-layout { display: flex; flex-direction: column; gap: var(--space-4); }
+.search-layout__results { min-width: 0; }
+@container page (min-width: 1040px) {
+  .search-layout:not(.is-focus) { display: grid; grid-template-columns: minmax(380px, 420px) minmax(0, 1fr); align-items: start; gap: var(--space-5); }
+  .search-layout:not(.is-focus) .search-layout__query {
+    position: sticky; top: var(--space-4);
+    max-height: calc(100vh - var(--header-h) - var(--space-7));
+    overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+    border-radius: var(--radius-lg);
+  }
+  /* The narrow column stacks the word rows' controls. */
+  .search-layout:not(.is-focus) .seq__row { grid-template-columns: 22px 1fr 1fr; }
+  .search-layout:not(.is-focus) .seq__row > :nth-child(4) { grid-column: 2 / 4; }
+  .search-layout:not(.is-focus) .seq__row > :nth-child(5) { grid-column: 2; }
+  .search-layout:not(.is-focus) .seq__row > :nth-child(6) { grid-column: 3; justify-self: end; }
+  .search-layout:not(.is-focus) .filter-row { grid-template-columns: 1fr 1fr 32px 32px; }
+  .search-layout:not(.is-focus) .filter-row > :nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+  .search-layout:not(.is-focus) .search-layout__query .form-grid { grid-template-columns: 1fr; }
+}
