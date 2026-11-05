@@ -161,7 +161,8 @@ colours meet 4.5:1 for all text roles measured.
 2. **Done in the second pass (approved):** P1–P5, each committed and verified separately.
 3. **Next — shared components:** filter presets; a `Table` component owning scroll region, sortable
    header (as in P3) and export.
-4. **Longer term:** usage telemetry kept local and opt-in, to replace judgement with measured task times.
+4. **Re-audit:** see [ux-reaudit-2026-11.md](ux-reaudit-2026-11.md) for the verdicts on these changes and the QoL pass.
+5. **Longer term:** usage telemetry kept local and opt-in, to replace judgement with measured task times.
 
 ## J. Implementation report
 
