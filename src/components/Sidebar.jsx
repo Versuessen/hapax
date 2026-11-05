@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, PanelLeft, Search } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { NAV, corpusColor, corpusFamily, corporaByVariety, varietyInfo } from "../nav.js";
@@ -23,12 +23,18 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
   const narrow = useNarrow();
   const collapsed = userCollapsed || narrow;
   const { screen, setScreen, setDialog, evidence, prefs, info, query, setQuery, setSearch } = useApp();
-  const [open, setOpen] = useState(() => ({ analysis: screen.startsWith("analysis"), workflows: screen.startsWith("workflows") }));
+  const groupOf = (id) => NAV.find((n) => n.children?.some((c) => c.id === id))?.id;
+  const [open, setOpen] = useState(() => (groupOf(screen) ? { [groupOf(screen)]: true } : {}));
+  // Last screen visited in each section, so returning to a section lands where you left it.
+  const lastIn = useRef({});
 
   useEffect(() => {
-    const top = screen.split("/")[0];
-    if (top === "analysis" || top === "workflows") setOpen((o) => ({ ...o, [top]: true }));
-  }, [screen]);
+    const g = groupOf(screen);
+    if (g) {
+      lastIn.current[g] = screen;
+      setOpen((o) => (o[g] ? o : { ...o, [g]: true }));
+    }
+  }, [screen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const meta = { evidence: evidence.length || null, saved: prefs?.saved_searches?.length || null };
 
@@ -37,7 +43,8 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
       setQuery({ ...query, corpus: name, meta_attr: "", meta_value: "", filters: [] });
       setSearch(null);
     }
-    if (!["search", "corpus", "overview"].includes(screen)) setScreen("search");
+    // Screens that are about a corpus stay put; elsewhere, picking a corpus means "search it".
+    if (!["find/search", "corpora/details", "corpora/tags", "home"].includes(screen)) setScreen("find/search");
   };
 
   return (
@@ -57,9 +64,9 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
             <PanelLeft {...ICON} />
           </button>
         </div>
-        <button type="button" className="search-trigger" onClick={() => setDialog("palette")} aria-label="Search commands, screens and corpora" title={`Search (${modKey}+K)`}>
+        <button type="button" className="search-trigger" onClick={() => setDialog("palette")} title={`Search (${modKey}+K)`}>
           <Search {...ICON} aria-hidden="true" />
-          <span className="search-trigger__label">Search</span>
+          <span className="search-trigger__label">Search<span className="sr-only"> screens, corpora and saved searches</span></span>
           <span className="kbd-group" aria-hidden="true">
             <Kbd>{modKey}</Kbd>
             <Kbd>K</Kbd>
@@ -86,10 +93,11 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
                     aria-expanded={n.children ? expanded : undefined}
                     title={n.label}
                     onClick={() => {
-                      if (n.children) {
-                        if (collapsed) setScreen(n.children[0].id);
-                        else setOpen((o) => ({ ...o, [n.id]: !o[n.id] }));
-                      } else setScreen(n.id);
+                      if (!n.children) return setScreen(n.id);
+                      // Inside this section: the label folds it. Elsewhere: go there (last visited page) and unfold.
+                      if (active && !collapsed) return setOpen((o) => ({ ...o, [n.id]: !o[n.id] }));
+                      setOpen((o) => ({ ...o, [n.id]: true }));
+                      setScreen(lastIn.current[n.id] || n.children[0].id);
                     }}
                   >
                     <Icon {...ICON} aria-hidden="true" fill={active && n.id === "home" ? "currentColor" : "none"} />

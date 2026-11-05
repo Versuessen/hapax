@@ -68,7 +68,7 @@ export default function Saved() {
                       {describeFollowers(q).map((d) => <Chip key={d}>{d}</Chip>)}
                       {describeFilters(q).map((d) => <Chip key={d} tone="warn">{d}</Chip>)}
                     </div>
-                    <div className="mono" style={{ fontSize: 12, color: "var(--text-3)", marginTop: 6 }}>
+                    <div className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)", marginTop: 6 }}>
                       {Number(r.total).toLocaleString()} matches · {new Date(r.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
                     </div>
                   </div>

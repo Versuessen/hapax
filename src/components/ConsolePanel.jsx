@@ -144,7 +144,7 @@ export function ConsolePanel() {
       />
       <header className="console__bar">
         <span className="console__title">Console</span>
-        <span className="mono" style={{ fontSize: 12, color: "var(--text-3)" }}>
+        <span className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)" }}>
           {consoleLog.length} {consoleLog.length === 1 ? "entry" : "entries"}{errors ? ` · ${errors} error${errors === 1 ? "" : "s"}` : ""} · this session, in memory
         </span>
         <span className="spacer" />

@@ -154,12 +154,13 @@
   --accent-yellow: #d39b00;
   --accent-green: #14a86a;
   --accent-blue: #2f7de1;
+  --link: #1d67c9;          /* text links: 5.5:1 on white (accent-blue is 4.1:1) */
   --accent-pink: #d63a97;
   --accent-violet: #7b55e0;
 
   --positive: #0d7f4e;
   --negative: #cc3344;
-  --warning: #a77800;
+  --warning: #8f6600;   /* 5.0:1 on white (was #a77800, 3.9:1) */
   --info: #2f7de1;
 
   --chart-grid: #ececec;

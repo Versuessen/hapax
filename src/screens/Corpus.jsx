@@ -36,7 +36,7 @@ function CorpusCheck() {
     text = `Checked against the server registry at ${t} · ${bits.join(" · ")}`;
   }
   return (
-    <div className="row mono" style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 12, gap: 12 }}>
+    <div className="row mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)", marginBottom: 12, gap: 12 }}>
       <span>{text}</span>
       {connection.connected && <button type="button" className="btn btn--ghost" style={{ height: 28 }} disabled={!!busy} onClick={discover}>Check again</button>}
     </div>
@@ -77,13 +77,13 @@ export default function Corpus() {
       <div className="grid grid--kpi" style={{ marginBottom: 16, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
         {orderedCorpora(info).map((c) => (
           <button key={c} type="button" className="card" onClick={() => { setName(c); setAttr(""); setValues(null); setField(null); }} aria-pressed={c === name}
-            style={{ textAlign: "left", padding: 18, color: "inherit", borderColor: c === name ? "var(--border-strong)" : undefined, background: c === name ? "linear-gradient(180deg, var(--surface-active-top), var(--surface-active-bottom))" : undefined }}>
+            style={{ textAlign: "left", padding: "var(--space-4)", color: "inherit", borderColor: c === name ? "var(--border-strong)" : undefined, background: c === name ? "linear-gradient(180deg, var(--surface-active-top), var(--surface-active-bottom))" : undefined }}>
             <div className="row" style={{ flexWrap: "nowrap" }}>
               <Flag variety={info.corpora[c].variety} note={info.corpora[c].variety_note} />
               <span style={{ fontWeight: 500 }}>{c}</span>
-              <span className="mono" style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-3)" }}>{info.corpora[c].available === false ? "offline" : info.corpora[c].tokens ? compact(info.corpora[c].tokens) : "—"}</span>
+              <span className="mono" style={{ marginLeft: "auto", fontSize: "var(--fs-mono)", color: "var(--text-3)" }}>{info.corpora[c].available === false ? "offline" : info.corpora[c].tokens ? compact(info.corpora[c].tokens) : "—"}</span>
             </div>
-            <div style={{ color: "var(--text-2)", fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>{info.corpora[c].description}</div>
+            <div style={{ color: "var(--text-2)", fontSize: "var(--fs-small)", marginTop: 8, lineHeight: 1.4 }}>{info.corpora[c].description}</div>
           </button>
         ))}
       </div>
@@ -114,15 +114,15 @@ export default function Corpus() {
                   <Select id="md-a" value={attr} options={[["", "Choose an attribute…"], ...meta.map(([v, l, dis]) => [v, dis ? `${l} — too large to list` : l, dis])]} onChange={(e) => setAttr(e.target.value)} />
                 </Field>
               ) : <Notice tone="info">This corpus has no metadata attributes.</Notice>}
-              <div className="mono" style={{ fontSize: 12, color: "var(--text-3)" }}>Attributes with more than 10,000 regions are not decoded in bulk, to protect the shared server. Type a value directly in Search instead.</div>
+              <div className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)" }}>Attributes with more than 10,000 regions are not decoded in bulk, to protect the shared server. Type a value directly in Search instead.</div>
             </div>
           </Card>
 
           {values && values.corpus === name && (
             <Card flush title={<><strong>{thousands(values.data.groups.length)}</strong> values of {values.attr}</>} sub={`${seconds(values.elapsed)}${values.data.truncated ? " · first 1,000" : ""}`}>
-              <div className="table-wrap" style={{ "--table-max": "480px", borderTop: "1px solid var(--border-subtle)" }}>
+              <div tabIndex={0} role="region" aria-label="Structural attributes" className="table-wrap" style={{ "--table-max": "480px", borderTop: "1px solid var(--border-subtle)" }}>
                 <table className="table">
-                  <thead><tr><th>Value</th><th className="num">Regions</th><th style={{ width: "24%" }} /><th className="num">Tokens</th><th /></tr></thead>
+                  <thead><tr><th>Value</th><th className="num">Regions</th><th style={{ width: "24%" }}><span className="sr-only">Share</span></th><th className="num">Tokens</th><th><span className="sr-only">Use as filter</span></th></tr></thead>
                   <tbody>
                     {values.data.groups.map((g, i) => (
                       <tr key={g.value + i}>
@@ -141,7 +141,7 @@ export default function Corpus() {
         </div>
 
         <Card flush title="Structural attributes" sub="Regions per attribute (verified inventory)">
-          <div className="table-wrap" style={{ "--table-max": "640px", borderTop: "1px solid var(--border-subtle)" }}>
+          <div tabIndex={0} role="region" aria-label="Metadata values" className="table-wrap" style={{ "--table-max": "640px", borderTop: "1px solid var(--border-subtle)" }}>
             <table className="table">
               <tbody>
                 {Object.entries(ci.structural).sort((a, b) => b[1] - a[1]).map(([k, v]) => (

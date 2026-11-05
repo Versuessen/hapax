@@ -60,15 +60,15 @@ function BusyIndicator() {
     return (
       <div className="row" style={{ gap: 10 }} role="status" aria-live="polite">
         <Spinner label={busy.label} />
-        <span className="topbar__hide-narrow" style={{ color: "var(--text-2)", fontSize: 13 }}>{busy.label}</span>
-        <span className="mono" style={{ color: "var(--text-3)", fontSize: 12 }}>{((now - busy.startedAt) / 1000).toFixed(1)} s</span>
+        <span className="topbar__hide-narrow" style={{ color: "var(--text-2)", fontSize: "var(--fs-small)" }}>{busy.label}</span>
+        <span className="mono" style={{ color: "var(--text-3)", fontSize: "var(--fs-mono)" }}>{((now - busy.startedAt) / 1000).toFixed(1)} s</span>
         <Button icon={Square} onClick={cancel} title="Stop request (closes the SSH channel; best effort)">Stop</Button>
       </div>
     );
   }
   if (!lastRun) return null;
   return (
-    <span className="mono topbar__hide-narrow" style={{ color: "var(--text-3)", fontSize: 12 }} title="Client wall-clock time: SSH round trip, remote execution and parsing — not backend-only speed">
+    <span className="mono topbar__hide-narrow" style={{ color: "var(--text-3)", fontSize: "var(--fs-mono)" }} title="Client wall-clock time: SSH round trip, remote execution and parsing — not backend-only speed">
       {seconds(lastRun.elapsed)} · {lastRun.cached ? "cached" : "SSH request"}
     </span>
   );
@@ -83,26 +83,26 @@ export function Topbar() {
     <header className="topbar">
       <h1 className="topbar__title">
         <Icon {...ICON} aria-hidden="true" />
-        <span>{item.label}</span>
+        <span className={child ? "topbar__section" : undefined}>{item.label}</span>
         {child && (
           <>
-            <ChevronRight {...ICON} size={14} className="topbar__crumb" aria-hidden="true" />
+            <ChevronRight {...ICON} size={14} className="topbar__crumb topbar__sep" aria-hidden="true" />
             <span className="topbar__crumb" style={{ color: "var(--text-2)" }}>{child.label}</span>
           </>
         )}
       </h1>
       <div className="topbar__actions">
         <BusyIndicator />
-        <button type="button" className="status-pill" onClick={() => setDialog("connect")} aria-label="Connection settings">
+        <button type="button" className="status-pill" onClick={() => setDialog("connect")} title="Connection settings">
           <span className="dot" style={{ background: connection.connected ? "var(--positive)" : "var(--text-4)", color: connection.connected ? "var(--positive)" : "transparent" }} aria-hidden="true" />
           {connection.connected ? (
             <>
               <span className="topbar__hide-narrow">{connection.user}@{connection.host}</span>
               {engine && <span className="mono topbar__hide-narrow">CQP {engine}</span>}
-              <span className="sr-only">Connected</span>
+              <span className="sr-only">, connected — connection settings</span>
             </>
           ) : (
-            <span>Connect</span>
+            <span>Connect<span className="sr-only"> — connection settings</span></span>
           )}
         </button>
         <div style={{ position: "relative" }}>

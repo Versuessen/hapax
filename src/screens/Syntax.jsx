@@ -63,8 +63,8 @@ function ArcDiagram({ tokens, hover, setHover }) {
             <g key={t.id + i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} style={{ cursor: "default" }}>
               {root && <line x1={cx} x2={cx} y1={8} y2={layout.top - 4} stroke="var(--accent-yellow)" strokeWidth={1.5} markerEnd="url(#arrow)" />}
               <rect x={cx - w / 2} y={layout.top + 4} width={w} height={30} rx={8} fill={hover === i ? "var(--surface-hover)" : "var(--surface-2)"} stroke={root ? "var(--accent-yellow)" : "var(--border)"} />
-              <text x={cx} y={layout.top + 23} textAnchor="middle" style={{ fill: "var(--text-1)", fontFamily: "var(--font-sans)", fontSize: 13 }}>{t.word}</text>
-              <text x={cx} y={layout.top + 52} textAnchor="middle" style={{ fontSize: 11 }}>{t.pos}</text>
+              <text x={cx} y={layout.top + 23} textAnchor="middle" style={{ fill: "var(--text-1)", fontFamily: "var(--font-sans)", fontSize: "var(--fs-small)" }}>{t.word}</text>
+              <text x={cx} y={layout.top + 52} textAnchor="middle" style={{ fontSize: "var(--fs-micro)" }}>{t.pos}</text>
             </g>
           );
         })}
@@ -127,7 +127,7 @@ export default function Syntax() {
               {d.undefined > 0 && <div style={{ marginTop: 12 }}><Notice tone="info">Dashed or missing arcs are <code>__UNDEF__</code> in the corpus. They are kept undefined, never guessed.</Notice></div>}
             </Card>
             <Card flush title="Token table" sub="Text alternative to the diagram">
-              <div className="table-wrap" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+              <div tabIndex={0} role="region" aria-label="Sentence tokens" className="table-wrap" style={{ borderTop: "1px solid var(--border-subtle)" }}>
                 <table className="table">
                   <thead><tr><th className="num">id</th><th>Word</th><th>POS</th><th>Lemma</th><th className="num">Head</th><th>Relation</th><th className="num">Position</th></tr></thead>
                   <tbody>

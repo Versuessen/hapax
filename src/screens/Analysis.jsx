@@ -75,7 +75,7 @@ export function ExplainPanel({ corpus, field, value, onClose }) {
       <div className="stack" style={{ gap: 10 }}>
         <div style={{ fontSize: 16 }}>{ex.short}</div>
         {ex.full !== ex.short && <div style={{ color: "var(--text-2)" }}>{ex.full}</div>}
-        <div style={{ color: "var(--text-2)", fontSize: 13 }}>{ex.note}</div>
+        <div style={{ color: "var(--text-2)", fontSize: "var(--fs-small)" }}>{ex.note}</div>
         {ex.reference && (
           <div><Button variant="ghost" icon={ExternalLink} onClick={() => openExternal(ex.reference)}>Tagset source</Button></div>
         )}
@@ -166,7 +166,7 @@ function Frequencies() {
               <Select id="fq-field" value={field} options={opts} onChange={(e) => setField(e.target.value)} />
             </Field>
           </div>
-          <div className="mono" style={{ fontSize: 12, color: "var(--text-3)" }}>{positionHint(position, b.base)}</div>
+          <div className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)" }}>{positionHint(position, b.base)}</div>
           <ExtraCorpora base={b.base.corpus} others={others} extra={extra} setExtra={setExtra} />
         </div>
       </Card>
@@ -193,13 +193,13 @@ function ExtraCorpora({ base, others, extra, setExtra }) {
       </div>
       {extra.map((x) => (
         <div key={x.corpus} className="stack" style={{ gap: 6, paddingLeft: 12, borderLeft: "2px solid var(--border-subtle)" }}>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>{x.corpus} — only in documents where</div>
+          <div style={{ fontSize: "var(--fs-small)", fontWeight: 500 }}>{x.corpus} — only in documents where</div>
           <FilterEditor corpus={x.corpus} filters={x.filters} idPrefix={`fx-${x.corpus}`} compact
             onChange={(list) => setExtra((all) => all.map((y) => (y.corpus === x.corpus ? { ...y, filters: list } : y)))} />
         </div>
       ))}
       {extra.length > 0 && (
-        <div className="muted" style={{ fontSize: 12 }}>
+        <div className="muted" style={{ fontSize: "var(--fs-mono)" }}>
           The same search runs in each corpus; {base}'s filters come from the search. Shares are within each corpus, so corpora of different sizes compare directly.
         </div>
       )}
@@ -238,7 +238,7 @@ function FrequencyResults({ res, pick, setPick, toast, log }) {
         sub={`${res.field} of the ${posLabel} · ${seconds(res.elapsed)}${ok.some((r) => r.data.truncated) ? " · top 300 values per corpus" : ""}${ok.some((r) => r.data.counted != null && r.data.counted < r.data.total) ? " · phrases counted from the first 200,000 matches" : ""}`}
         actions={<Button icon={FileDown} onClick={async () => { const path = await saveDialog({ defaultPath: `${safeFileStem(res.corpus)}_counts.csv` }); if (path) exportReport(toast, log, "Exported counts", invoke("export_table", { path, rows: exportRows })); }}>Export…</Button>}>
         {rows.length ? (
-          <div className="table-wrap table-scroll" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
+          <div tabIndex={0} role="region" aria-label="Counts" className="table-wrap table-scroll" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
             <table className="table">
               <thead>
                 <tr>
@@ -247,7 +247,7 @@ function FrequencyResults({ res, pick, setPick, toast, log }) {
                   {ok.map((r) => (
                     <th key={r.corpus} className="num" colSpan={2} title={r.filters.length ? `Filtered: ${r.filters.join("; ")}` : "Whole corpus"}>
                       {r.corpus}{r.filters.length ? " ·  filtered" : ""}
-                      <div className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}>{thousands(r.data.total)} matches</div>
+                      <div className="muted" style={{ fontWeight: 400, fontSize: "var(--fs-micro)" }}>{thousands(r.data.total)} matches</div>
                     </th>
                   ))}
                 </tr>
@@ -275,7 +275,7 @@ function FrequencyResults({ res, pick, setPick, toast, log }) {
             <ExplainPanel corpus={res.corpus} field={res.field} value={pick} onClose={() => setPick(null)} />
           ) : (
             <Card title="Reading this table">
-              <div className="prose" style={{ fontSize: 13 }}>
+              <div className="prose" style={{ fontSize: "var(--fs-small)" }}>
                 <p>Each row is a value of <strong>{res.field}</strong> for the {posLabel}, counted over all {thousands(first.data.total)} matches. The share is that value's part of all counted matches.</p>
                 <p>Tags come from the corpus's automatic tagger. Select a row to see what a code means.</p>
               </div>
@@ -299,7 +299,7 @@ function FragmentCells({ count, share, max, color }) {
       <td style={{ minWidth: 150 }}>
         <div className="row" style={{ flexWrap: "nowrap", gap: 8 }}>
           <BarCell value={share} max={max} color={color} />
-          <span className="mono" style={{ fontSize: 12, color: "var(--text-3)", width: 48, textAlign: "right" }}>{(share * 100).toFixed(1)}%</span>
+          <span className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)", width: 48, textAlign: "right" }}>{(share * 100).toFixed(1)}%</span>
         </div>
       </td>
     </>
@@ -340,7 +340,7 @@ function Collocates() {
             {rows.length ? <CollocationChart result={res.data} /> : <EmptyState title="No neighbours">The sample contained no context tokens.</EmptyState>}
           </Card>
           <Card flush title="All positions" actions={<Button icon={FileDown} onClick={async () => { const path = await saveDialog({ defaultPath: `${safeFileStem(b.base.corpus)}_collocates.csv` }); if (path) exportReport(toast, log, "Exported neighbouring words", invoke("export_table", { path, rows: res.data.groups })); }}>Export…</Button>}>
-            <div className="table-wrap" style={{ "--table-max": "480px", borderTop: "1px solid var(--border-subtle)" }}>
+            <div tabIndex={0} role="region" aria-label="Nearby words by position" className="table-wrap" style={{ "--table-max": "480px", borderTop: "1px solid var(--border-subtle)" }}>
               <table className="table">
                 <thead><tr><th>Word</th><th style={{ width: "18%" }}>Total</th>{POSITIONS.map((p) => <th key={p} className="num">{p}</th>)}<th className="num">Total</th></tr></thead>
                 <tbody>
@@ -453,7 +453,7 @@ function Distribution() {
               <Button icon={FileDown} onClick={async () => { const path = await saveDialog({ defaultPath: `${safeFileStem(res.corpus)}_${res.attr}_distribution.csv` }); if (path) exportReport(toast, log, "Exported distribution", invoke("export_table", { path, rows, columns: ["value", "hits", "tokens", "regions", "per_million"] })); }}>Export…</Button>
             </>
           }>
-          <div className="table-wrap" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
+          <div tabIndex={0} role="region" aria-label="Matches per metadata value" className="table-wrap" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
             <table className="table">
               <thead><tr><th>{brownLike && byGenre ? "Genre category" : res.attr}</th><th className="num">Matches</th><th className="num">Tokens in group</th><th style={{ width: "28%" }}>Rate</th><th className="num">Per million</th></tr></thead>
               <tbody>
@@ -464,7 +464,7 @@ function Distribution() {
                       <td className="mono">{r.value || "(empty)"}</td>
                       <td className="num">{thousands(r.hits)}</td>
                       <td className="num">{r.tokens ? thousands(r.tokens) : "—"}</td>
-                      <td>{small ? <span className="muted" style={{ fontSize: 12 }}>small group</span> : <BarCell value={r.per_million} max={max} color={SERIES[0]} />}</td>
+                      <td>{small ? <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>small group</span> : <BarCell value={r.per_million} max={max} color={SERIES[0]} />}</td>
                       <td className="num">{r.tokens ? r.per_million.toFixed(2) : "—"}</td>
                     </tr>
                   );
@@ -518,9 +518,9 @@ function Codes() {
         </Card>
         {res && (
           <Card flush title={<><strong>{thousands(res.data.groups.length)}</strong> codes</>} sub={`${corpus} · ${field}${res.data.truncated ? " · first 2,500" : ""}`}>
-            <div className="table-wrap" style={{ "--table-max": "520px", borderTop: "1px solid var(--border-subtle)" }}>
+            <div tabIndex={0} role="region" aria-label="Annotation codes" className="table-wrap" style={{ "--table-max": "520px", borderTop: "1px solid var(--border-subtle)" }}>
               <table className="table">
-                <thead><tr><th>Code</th><th>Meaning</th><th style={{ width: "22%" }} /><th className="num">Tokens</th></tr></thead>
+                <thead><tr><th>Code</th><th>Meaning</th><th style={{ width: "22%" }}><span className="sr-only">Share</span></th><th className="num">Tokens</th></tr></thead>
                 <tbody>
                   {res.data.groups.map((g, i) => (
                     <tr key={g.value + i} data-clickable="true" aria-selected={pick === g.value} onClick={() => setPick(g.value)}>
@@ -543,14 +543,14 @@ function Codes() {
               <Input id="gl-q" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter codes, e.g. VVG or adjective" style={{ paddingLeft: 36 }} />
             </div>
           </div>
-          <div className="table-wrap" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
+          <div tabIndex={0} role="region" aria-label="Codebook" className="table-wrap" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
             <table className="table">
               <tbody>
                 {gl.slice(0, 400).map((g, i) => (
                   <tr key={g.category + g.code + i} data-clickable={g.category === "POS"} onClick={() => g.category === "POS" && (setField("pos"), setPick(g.code))} title={g.note}>
                     <td className="mono" style={{ width: 90 }}>{g.code}</td>
                     <td>{g.label}</td>
-                    <td className="mono" style={{ color: "var(--text-3)", fontSize: 12, textAlign: "right" }}>{g.category}</td>
+                    <td className="mono" style={{ color: "var(--text-3)", fontSize: "var(--fs-mono)", textAlign: "right" }}>{g.category}</td>
                   </tr>
                 ))}
               </tbody>

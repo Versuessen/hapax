@@ -66,16 +66,16 @@ function useShortcuts() {
         }
       } else if (isMod(e) && e.key === "Enter") {
         e.preventDefault();
-        if (screen !== "search") setScreen("search");
+        if (screen !== "find/search") setScreen("search");
         setTimeout(() => window.dispatchEvent(new CustomEvent("cqp:search")), 0);
       } else if (isMod(e) && k === "l") {
         e.preventDefault();
-        if (screen !== "search") setScreen("search");
+        if (screen !== "find/search") setScreen("search");
         setTimeout(() => document.querySelector("[data-search-term]")?.focus(), 30);
-      } else if (isMod(e) && k === "s" && screen === "search") {
+      } else if (isMod(e) && k === "s" && screen === "find/search") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("cqp:save"));
-      } else if (isMod(e) && k === "e" && screen === "search") {
+      } else if (isMod(e) && k === "e" && screen === "find/search") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("cqp:export"));
       }

@@ -5,7 +5,7 @@ import { useApp } from "../state/store.jsx";
 import { invoke, openDialog, saveDialog, JSON_FILTERS } from "../lib/ipc.js";
 import { Button, Card, Dialog, EmptyState, Segmented, Stat, Notice } from "../components/ui.jsx";
 import { exportReport } from "./Search.jsx";
-import { pad2, thousands } from "../lib/format.js";
+import { thousands } from "../lib/format.js";
 import { corpusColor } from "../nav.js";
 
 const DECISIONS = ["Relevant", "Irrelevant", "Unsure", "Unreviewed"];
@@ -67,10 +67,10 @@ export default function Evidence() {
       <PageHeader aside={evidenceDirty ? "unsaved changes" : evidence.length ? "saved" : ""} />
 
       <div className="grid grid--kpi" style={{ marginBottom: 16, gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
-        <Stat label="Examples" figure={pad2(evidence.length)} delta={`${pad2(counts.Unreviewed)} still to review`} />
-        <Stat label="Relevant" figure={pad2(counts.Relevant)} delta={<><span className="pos">{sources}</span> distinct sources</>} />
-        <Stat label="Unsure" figure={pad2(counts.Unsure)} delta={<span className="warn">needs a second look</span>} />
-        <Stat label="Irrelevant" figure={pad2(counts.Irrelevant)} delta="excluded by you" />
+        <Stat label="Examples" figure={thousands(evidence.length)} delta={`${thousands(counts.Unreviewed)} still to review`} />
+        <Stat label="Relevant" figure={thousands(counts.Relevant)} delta={<><span className="pos">{sources}</span> distinct sources</>} />
+        <Stat label="Unsure" figure={thousands(counts.Unsure)} delta={<span className="warn">needs a second look</span>} />
+        <Stat label="Irrelevant" figure={thousands(counts.Irrelevant)} delta="excluded by you" />
       </div>
 
       <Card flush
@@ -87,7 +87,7 @@ export default function Evidence() {
           <Segmented value={filter} onChange={setFilter} small label="Filter by decision" options={["All", ...DECISIONS].map((d) => [d, d === "All" ? `All ${evidence.length}` : `${d} ${counts[d]}`])} />
         </div>
         {evidence.length ? (
-          <div className="table-wrap" style={{ "--table-max": "460px", borderTop: "1px solid var(--border-subtle)" }}>
+          <div tabIndex={0} role="region" aria-label="Evidence examples" className="table-wrap" style={{ "--table-max": "460px", borderTop: "1px solid var(--border-subtle)" }}>
             <table className="table">
               <thead><tr><th>Decision</th><th>Context</th><th>Corpus</th><th className="num">Token</th><th>Source</th></tr></thead>
               <tbody>
@@ -98,7 +98,7 @@ export default function Evidence() {
                       <span style={{ color: "var(--text-2)" }}>…{r.left.split(" ").slice(-4).join(" ")} </span>
                       <mark className="kwic__match">{r.text}</mark>
                       <span style={{ color: "var(--text-2)" }}> {r.right.split(" ").slice(0, 4).join(" ")}…</span>
-                      {r.note && <div className="mono" style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>“{r.note}”</div>}
+                      {r.note && <div className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)", marginTop: 2 }}>“{r.note}”</div>}
                     </td>
                     <td className="mono" style={{ whiteSpace: "nowrap" }}><span className="dot" style={{ background: corpusColor(r.corpus), display: "inline-block", marginRight: 8, boxShadow: "none", width: 6, height: 6 }} />{r.corpus}</td>
                     <td className="num">{thousands(r.start)}</td>

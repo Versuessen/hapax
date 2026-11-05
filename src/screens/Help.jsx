@@ -1,4 +1,4 @@
-import { PageHeader } from "../components/PageHeader.jsx";
+import { PageHeader, resetGuides } from "../components/PageHeader.jsx";
 import { RefreshCw } from "lucide-react";
 import { Button, Card, Kbd } from "../components/ui.jsx";
 import { useApp } from "../state/store.jsx";
@@ -19,7 +19,7 @@ const SHORTCUTS = [
 ];
 
 export default function Help() {
-  const { info } = useApp();
+  const { info, toast } = useApp();
   return (
     <div className="page">
       <PageHeader aside="read before citing" />
@@ -57,8 +57,11 @@ export default function Help() {
         </Card>
         <div className="stack">
         <Card title="About" sub={`Hapax ${info?.version || ""}`}
-          actions={<Button icon={RefreshCw} onClick={() => window.dispatchEvent(new Event("hapax:check-updates"))}>Check for updates</Button>}>
-          <div className="prose" style={{ fontSize: 13 }}>
+          actions={<>
+            <Button variant="ghost" onClick={() => { resetGuides(); toast("Every page's guide will open again on your next visit.", "neutral", 4000); }}>Show all guides again</Button>
+            <Button icon={RefreshCw} onClick={() => window.dispatchEvent(new Event("hapax:check-updates"))}>Check for updates</Button>
+          </>}>
+          <div className="prose" style={{ fontSize: "var(--fs-small)" }}>
             <p>Source, issues and release notes: <a href="https://github.com/Versuessen/hapax" onClick={(e) => { e.preventDefault(); openExternal("https://github.com/Versuessen/hapax"); }}>github.com/Versuessen/hapax</a>.</p>
           </div>
         </Card>

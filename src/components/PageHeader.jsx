@@ -6,22 +6,44 @@ import { GUIDES } from "../guides.js";
 import { ICON, Tabs } from "./ui.jsx";
 
 const KEY = (id) => `hapax.guide.${id}`;
+/** Set once the user has hidden any guide: from then on, unvisited guides start closed too. */
+const LEARNED = "hapax.guide.__learned";
+/** Screens whose content already is documentation get no guide panel. */
+const NO_GUIDE = new Set(["help"]);
 
-/** Collapsible "How this page works" panel. Open on first visit, then remembered. */
+function initiallyOpen(id) {
+  try {
+    const v = localStorage.getItem(KEY(id));
+    if (v != null) return v === "1";
+    return localStorage.getItem(LEARNED) !== "1"; // beginners: open; anyone who has closed one: closed
+  } catch {
+    return true;
+  }
+}
+
+/** Reopen every guide (used by Methods & help). */
+export function resetGuides() {
+  try {
+    for (const k of Object.keys(localStorage)) if (k.startsWith("hapax.guide.")) localStorage.removeItem(k);
+  } catch { /* convenience only */ }
+}
+
+/**
+ * Collapsible "How this page works" panel. The purpose line is always visible;
+ * the steps open on a first visit until the user hides any guide once, after
+ * which guides stay closed unless opened — beginners get the walkthrough,
+ * repeat users get the space back.
+ */
 export function Guide({ id }) {
   const g = GUIDES[id];
-  const [open, setOpen] = useState(() => {
-    try {
-      const v = localStorage.getItem(KEY(id));
-      return v == null ? true : v === "1";
-    } catch {
-      return true;
-    }
-  });
-  if (!g) return null;
+  const [open, setOpen] = useState(() => initiallyOpen(id));
+  if (!g || NO_GUIDE.has(id)) return null;
   const toggle = () => {
     setOpen((o) => {
-      try { localStorage.setItem(KEY(id), o ? "0" : "1"); } catch { /* convenience only */ }
+      try {
+        localStorage.setItem(KEY(id), o ? "0" : "1");
+        if (o) localStorage.setItem(LEARNED, "1");
+      } catch { /* convenience only */ }
       return !o;
     });
   };

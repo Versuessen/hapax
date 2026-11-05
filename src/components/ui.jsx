@@ -42,9 +42,9 @@ export function IconButton({ icon, label, ...rest }) {
   return <Button variant="ghost" icon={icon} aria-label={label} title={label} {...rest} />;
 }
 
-export function Card({ title, sub, actions, children, className = "", flush, ...rest }) {
+export const Card = forwardRef(function Card({ title, sub, actions, children, className = "", flush, ...rest }, ref) {
   return (
-    <section className={`card${flush ? " card--flush" : ""} ${className}`} {...rest}>
+    <section ref={ref} className={`card${flush ? " card--flush" : ""} ${className}`} {...rest}>
       {(title || actions) && (
         <header className={`card__head${flush ? " card__head--pad" : ""}`}>
           <div style={{ minWidth: 0 }}>
@@ -57,7 +57,7 @@ export function Card({ title, sub, actions, children, className = "", flush, ...
       {children}
     </section>
   );
-}
+});
 
 export function Stat({ label, figure, unit, delta, small, onClick, ...rest }) {
   const Tag = onClick ? "button" : "section";
@@ -147,8 +147,14 @@ export function Segmented({ value, onChange, options, small, label }) {
 }
 
 export function Tabs({ value, onChange, options, label }) {
+  const ref = useRef(null);
+  // Keep the selected tab visible when the row scrolls sideways (narrow windows).
+  useEffect(() => {
+    const el = ref.current?.querySelector('[aria-selected="true"]');
+    if (el && ref.current.scrollWidth > ref.current.clientWidth) el.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [value]);
   return (
-    <div className="tabs" role="tablist" aria-label={label}>
+    <div className="tabs" role="tablist" aria-label={label} ref={ref}>
       {options.map(([v, text]) => (
         <button key={v} role="tab" type="button" aria-selected={value === v} onClick={() => onChange(v)}>
           {text}

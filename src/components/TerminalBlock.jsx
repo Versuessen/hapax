@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Copy, Download, SquareTerminal } from "lucide-react";
+import { ChevronRight, Copy, Download, SquareTerminal } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke, saveDialog } from "../lib/ipc.js";
 import { ICON, Segmented } from "./ui.jsx";
@@ -15,6 +15,16 @@ export function TerminalBlock({ op, request, payload, compact }) {
     try { return localStorage.getItem("cqp.termStyle") || "cqp"; } catch { return "cqp"; }
   });
   const [text, setText] = useState(null);
+  // In the console the commands are the point; elsewhere they start folded away
+  // (remembered), so the form and results keep the space.
+  const [open, setOpen] = useState(() => {
+    if (compact) return true;
+    try { return localStorage.getItem("hapax.term.open") === "1"; } catch { return false; }
+  });
+  const toggle = () => setOpen((o) => {
+    try { localStorage.setItem("hapax.term.open", o ? "0" : "1"); } catch { /* convenience only */ }
+    return !o;
+  });
   const [error, setError] = useState(null);
   const key = JSON.stringify([op, request, payload, style]);
 
@@ -35,10 +45,20 @@ export function TerminalBlock({ op, request, payload, compact }) {
   };
 
   return (
-    <div className="term">
+    <div className={`term${open ? "" : " is-closed"}`}>
       <div className="term__bar">
-        <SquareTerminal {...ICON} size={14} aria-hidden="true" />
-        <span>{compact ? "Terminal" : "Run this in your own SSH terminal"}</span>
+        {compact ? (
+          <>
+            <SquareTerminal {...ICON} size={14} aria-hidden="true" />
+            <span>Terminal</span>
+          </>
+        ) : (
+          <button type="button" className="term__toggle" aria-expanded={open} onClick={toggle}>
+            <ChevronRight {...ICON} size={14} className="term__chev" aria-hidden="true" />
+            <SquareTerminal {...ICON} size={14} aria-hidden="true" />
+            <span>Run this in your own SSH terminal</span>
+          </button>
+        )}
         <span className="spacer" />
         <Segmented small value={style} onChange={pick} label="Command style" options={[["cqp", "cqp> prompt"], ["shell", "Shell script"]]} />
         <button type="button" className="btn btn--ghost btn--icon" aria-label="Copy commands" title="Copy" disabled={!text}
@@ -54,7 +74,7 @@ export function TerminalBlock({ op, request, payload, compact }) {
           <Download {...ICON} size={14} />
         </button>
       </div>
-      {error ? <pre className="term__pre term__pre--err" role="alert">{error}</pre> : <pre className="term__pre">{text ?? "…"}</pre>}
+      {open && (error ? <pre className="term__pre term__pre--err" role="alert">{error}</pre> : <pre className="term__pre">{text ?? "…"}</pre>)}
     </div>
   );
 }

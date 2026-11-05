@@ -223,6 +223,11 @@
   .nav-section__label { display: none; }
   .main { order: 1; }
   .page-title { font-size: 28px; }
+  /* Narrow: the qualifier moves to its own smaller line instead of wrapping at title size,
+     and the header shows only the current page (the tabs below name the section). */
+  .page-title__muted { display: block; font-size: var(--fs-brand); line-height: 1.3; margin-top: 4px; }
+  .topbar__title .topbar__section, .topbar__title .topbar__sep { display: none; }
+  .topbar__title > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .topbar { padding-left: var(--space-4); padding-right: var(--space-4); }
   .page { padding-left: var(--space-4); padding-right: var(--space-4); }
   .grid--kpi { grid-template-columns: minmax(0, 1fr); }

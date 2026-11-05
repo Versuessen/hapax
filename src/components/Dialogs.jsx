@@ -127,8 +127,8 @@ export function HostKeyDialog() {
           <dl className="dl">
             <dt>Host</dt><dd>{hostKey.host}:{hostKey.port}</dd>
             <dt>Algorithm</dt><dd className="mono">{hostKey.key_type}</dd>
-            <dt>Fingerprint</dt><dd className="mono" style={{ fontSize: 13 }}>{hostKey.fingerprint}</dd>
-            <dt>Saved to</dt><dd className="mono" style={{ fontSize: 12, color: "var(--text-2)" }}>{hostKey.known_hosts_path}</dd>
+            <dt>Fingerprint</dt><dd className="mono" style={{ fontSize: "var(--fs-small)" }}>{hostKey.fingerprint}</dd>
+            <dt>Saved to</dt><dd className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-2)" }}>{hostKey.known_hosts_path}</dd>
           </dl>
           <Notice tone="warn">A changed key for a known host is always refused. That situation can indicate an interception attack.</Notice>
         </div>

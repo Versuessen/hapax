@@ -260,9 +260,9 @@ function Builder() {
           <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
             {groups ? (
               groups.length ? (
-                <div className="table-wrap" style={{ "--table-max": "520px" }}>
+                <div tabIndex={0} role="region" aria-label="Workflow counts" className="table-wrap" style={{ "--table-max": "520px" }}>
                   <table className="table">
-                    <thead><tr><th>Value</th><th>Meaning</th><th style={{ width: "26%" }} /><th className="num">Count</th></tr></thead>
+                    <thead><tr><th>Value</th><th>Meaning</th><th style={{ width: "26%" }}><span className="sr-only">Share</span></th><th className="num">Count</th></tr></thead>
                     <tbody>{groups.map((g, i) => (<tr key={g.value + i}><td className="mono">{g.value}</td><td className="muted">{g.meaning}</td><td><BarCell value={g.count} max={gmax} color={SERIES[i % SERIES.length]} /></td><td className="num">{thousands(g.count)}</td></tr>))}</tbody>
                   </table>
                 </div>
@@ -275,7 +275,7 @@ function Builder() {
           </div>
           {res.request.mode === "results" && res.data.total > res.request.limit && (
             <div className="card__foot" style={{ padding: "12px 24px", marginTop: 0 }}>
-              <span className="mono" style={{ fontSize: 12, color: "var(--text-3)" }}>{thousands(res.request.offset + 1)}–{thousands(res.request.offset + rows.length)} of {thousands(res.data.total)}</span>
+              <span className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)" }}>{thousands(res.request.offset + 1)}–{thousands(res.request.offset + rows.length)} of {thousands(res.data.total)}</span>
               <span className="spacer" />
               <Button disabled={res.request.offset === 0 || !!busy} onClick={() => runIt("results", Math.max(0, res.request.offset - res.request.limit))}>Previous</Button>
               <Button disabled={res.request.offset + rows.length >= res.data.total || !!busy} onClick={() => runIt("results", res.request.offset + res.request.limit)}>Next</Button>
@@ -309,9 +309,14 @@ const stars = (ll) => (ll >= 10.83 ? "***" : ll >= 6.63 ? "**" : ll >= 3.84 ? "*
 function Compare() {
   const { info, run, toast, log, busy, query, search } = useApp();
   const names = orderedCorpora(info);
-  const [corpora, setCorpora] = useState(["BROWN-LEGACY", "LOB-LEGACY"]);
-  const [q, setQ] = useState(() => ({ ...query, corpus: "BROWN-LEGACY", meta_attr: "", meta_value: "", filters: [], value: query.value || "jury" }));
-  const [filters, setFilters] = useState({}); // corpus -> document filters for that corpus
+  // Start from what the user is working on: the current search, its corpus as the
+  // reference and its filters on that corpus. They then add the corpora to compare.
+  const [corpora, setCorpora] = useState(() => (isSearchable(info?.corpora?.[query.corpus]) ? [query.corpus] : []));
+  const [q, setQ] = useState(() => ({ ...query, meta_attr: "", meta_value: "", filters: [] }));
+  const [filters, setFilters] = useState(() => {
+    const own = filtersOf(query).filter((f) => f.attr);
+    return own.length ? { [query.corpus]: own } : {};
+  }); // corpus -> document filters for that corpus
   const [openFilters, setOpenFilters] = useState(null);
   const [res, setRes] = useState(null);
   const builderQuery = { ...q, corpus: corpora[0] || q.corpus };
@@ -336,7 +341,7 @@ function Compare() {
         actions={<Button variant="primary" icon={Scale} onClick={go} disabled={!!busy || !q.value || !!error || corpora.length < 2}>Compare</Button>}>
         <div className="stack" style={{ gap: 14 }}>
           <div>
-            <div className="field__label" id="cmp-corpora">Corpora <span className="muted">({corpora.length} of 2–6 · first one is the reference)</span></div>
+            <div className="field__label" id="cmp-corpora">Corpora <span className="muted">({corpora.length < 2 ? `select ${2 - corpora.length} more` : `${corpora.length} of 6`} · the first is the reference)</span></div>
             <div className="row" role="group" aria-labelledby="cmp-corpora" style={{ gap: 8, marginTop: 6 }}>
               {names.map((c) => {
                 const on = corpora.includes(c);
@@ -358,7 +363,7 @@ function Compare() {
                     <li key={c}>
                       <div className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
                         <span style={{ minWidth: 130, fontWeight: 500 }}>{c}</span>
-                        <span className="muted" style={{ flex: 1, minWidth: 0, fontSize: 12.5 }}>{desc.length ? desc.join(" · ") : "whole corpus"}</span>
+                        <span className="muted" style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-mono)" }}>{desc.length ? desc.join(" · ") : "whole corpus"}</span>
                         <button type="button" className="btn btn--ghost" aria-expanded={openFilters === c} onClick={() => setOpenFilters(openFilters === c ? null : c)}>
                           {list.length ? "Edit filters" : "Filter"}
                         </button>
@@ -384,7 +389,7 @@ function Compare() {
               const own = filtersOf(sq).filter((f) => f.attr);
               if (own.length) setFilters((m) => ({ ...m, [sq.corpus]: own })); // the search's filters belong to its corpus
             }}>Use current search</Button>}
-            <span className="muted" style={{ fontSize: 12 }}>Filters are set per corpus, because metadata differs between corpora. Fields such as “lexeme” resolve per corpus.</span>
+            <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>Filters are set per corpus, because metadata differs between corpora. Fields such as “lexeme” resolve per corpus.</span>
           </div>
         </div>
         {related && <div style={{ marginTop: 12 }}><Notice tone="warn">BNC-BABY is a subset of the BNC; their rates are not independent evidence.</Notice></div>}
@@ -399,7 +404,7 @@ function Compare() {
           actions={<Button icon={FileDown} onClick={async () => { const p = await saveDialog({ defaultPath: "corpus_comparison.csv" }); if (p) exportReport(toast, log, "Exported comparison", invoke("export_comparison", { path: p, request: res.req, result: res.data })); }}>Export…</Button>}>
           <div className="table-scroll">
             <table className="table" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-              <thead><tr><th>Corpus</th><th className="num">Matches</th><th className="num" title="Tokens in the corpus, or in its filtered part">Tokens searched</th><th style={{ width: "26%" }} /><th className="num">Per million</th><th className="num">× ref</th><th className="num">LL vs ref</th></tr></thead>
+              <thead><tr><th>Corpus</th><th className="num">Matches</th><th className="num" title="Tokens in the corpus, or in its filtered part">Tokens searched</th><th style={{ width: "26%" }}><span className="sr-only">Share</span></th><th className="num">Per million</th><th className="num">× ref</th><th className="num">LL vs ref</th></tr></thead>
               <tbody>
                 {rows.map((r, i) => {
                   const ll = i && ref ? logLikelihood(r.total, r.tokens, ref.total, ref.tokens) : null;
@@ -409,7 +414,7 @@ function Compare() {
                       <td>
                         <span className="row" style={{ flexWrap: "nowrap" }}><Flag variety={info?.corpora?.[r.corpus]?.variety} note={info?.corpora?.[r.corpus]?.variety_note} size={14} />{r.corpus}</span>
                         {r.subcorpus && (
-                          <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }} title={(res.req.filters[r.corpus] || []).map(describeFilter).join("; ")}>
+                          <div className="muted" style={{ fontSize: "var(--fs-micro)", marginTop: 2 }} title={(res.req.filters[r.corpus] || []).map(describeFilter).join("; ")}>
                             {r.subcorpus_measured ? "filtered part" : "filtered · rate uses whole corpus"}
                           </div>
                         )}

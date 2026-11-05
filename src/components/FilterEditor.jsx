@@ -33,7 +33,7 @@ export function FilterEditor({ corpus, filters, onChange, idPrefix = "flt", comp
   const set = (i, patch) => onChange(filters.map((f, j) => (j === i ? { ...f, ...patch } : f)));
 
   if (!attrs.length) {
-    return <div className="muted" style={{ fontSize: 12.5 }}>{corpus} has no document metadata to filter by.</div>;
+    return <div className="muted" style={{ fontSize: "var(--fs-mono)" }}>{corpus} has no document metadata to filter by.</div>;
   }
   return (
     <div className="stack" style={{ gap: 8 }}>
@@ -84,7 +84,7 @@ export function FilterEditor({ corpus, filters, onChange, idPrefix = "flt", comp
           <Plus {...ICON} size={14} /> Add filter
         </button>
         {!compact && (
-          <span className="muted" style={{ fontSize: 12 }}>
+          <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>
             {filters.length > 1 ? "Matches must meet every filter." : "Limit matches to documents, speakers or periods."}
           </span>
         )}

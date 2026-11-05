@@ -4,7 +4,7 @@ import { Activity, Bookmark, Play, Plug, Sparkles } from "lucide-react";
 import { useApp, queryKey } from "../state/store.jsx";
 import { Button, Card, EmptyState, ICON, Stat } from "../components/ui.jsx";
 import { LineChart, Legend, SERIES } from "../components/charts.jsx";
-import { compact, pad2, perMillion, rate, thousands } from "../lib/format.js";
+import { compact, perMillion, rate, thousands } from "../lib/format.js";
 import { corpusColor } from "../nav.js";
 import { runCollocates } from "./Analysis.jsx";
 
@@ -36,7 +36,7 @@ export function CollocationChart({ result, compactLegend }) {
         mirroredHeight={compactLegend ? 86 : 100}
         ariaLabel={`Positional profile of the ${top.length} most frequent neighbouring words; ranks 6–10 mirrored in grey below.`}
       />
-      <div className="mono" style={{ fontSize: 12, color: "var(--text-3)" }}>
+      <div className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)" }}>
         Positions L4–L1 precede the match, R1–R4 follow it. Upper curves: top {top.length} neighbours. Grey mirrored curves: ranks 6–{5 + next.length}. Raw positional counts, not association scores.
       </div>
     </div>
@@ -76,7 +76,7 @@ export default function Overview() {
         />
         <Stat
           label="Evidence reviewed"
-          figure={pad2(reviewed)}
+          figure={thousands(reviewed)}
           unit={evidence.length ? `/ ${thousands(evidence.length)}` : null}
           delta={
             evidence.length ? (
@@ -154,7 +154,7 @@ export default function Overview() {
                 <li key={i} className="row" style={{ minHeight: 34, flexWrap: "nowrap" }}>
                   <Activity {...ICON} style={{ color: "var(--text-3)", flex: "none" }} aria-hidden="true" />
                   <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.label}</span>
-                  <span className="mono" style={{ fontSize: 12, color: "var(--text-3)", whiteSpace: "nowrap" }}>{a.detail}</span>
+                  <span className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)", whiteSpace: "nowrap" }}>{a.detail}</span>
                 </li>
               ))}
             </ul>

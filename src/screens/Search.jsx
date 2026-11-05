@@ -35,6 +35,18 @@ export default function Search() {
   const [confirmAll, setConfirmAll] = useState(false);
   const { preview, error } = useCqpPreview(query);
   const keyRef = useRef(queryKey(query));
+  const resultsRef = useRef(null);
+  const pendingScroll = useRef(false);
+  // Bring fresh results into view; the form stays one scroll up.
+  useEffect(() => {
+    if (!pendingScroll.current || !resultsRef.current) return;
+    pendingScroll.current = false;
+    const el = resultsRef.current;
+    const r = el.getBoundingClientRect();
+    if (r.top > window.innerHeight * 0.6 || r.top < 0) {
+      el.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
+  }, [search]);
   keyRef.current = queryKey(query);
 
   const ci = info?.corpora?.[query.corpus];
@@ -55,6 +67,7 @@ export default function Search() {
     setSelected(null);
     setSearch({ key, request, data: out.data, elapsed: out.elapsed_seconds, cached: out.cached, interpretation });
     if (offset === 0) remember(query, out.data.total);
+    pendingScroll.current = true; // scrolled once the results have rendered (effect below)
     if (offset === 0) log({ label: `${query.corpus} · ${request.field} “${request.value}”`, detail: `${thousands(out.data.total)} in ${seconds(out.elapsed_seconds)}` });
   };
 
@@ -172,7 +185,7 @@ export default function Search() {
               <Button variant="ghost" icon={RotateCcw} onClick={() => execute(0)}>Run again</Button>
             </Notice>
           )}
-          <Card flush style={stale ? { opacity: 0.55 } : undefined}>
+          <Card flush style={{ ...(stale ? { opacity: 0.55 } : {}), scrollMarginTop: 72 }} ref={resultsRef}>
             <div className="card__head card__head--pad" style={{ alignItems: "center", flexWrap: "wrap" }}>
               <div>
                 <div className="stat__figure stat__figure--sm" style={{ margin: 0 }}>
@@ -196,7 +209,7 @@ export default function Search() {
               </div>
             </div>
             {search.interpretation && (
-              <div style={{ padding: "0 24px 16px", color: "var(--text-2)", fontSize: 13, maxWidth: "110ch" }}>{search.interpretation}</div>
+              <div style={{ padding: "0 24px 16px", color: "var(--text-2)", fontSize: "var(--fs-small)", maxWidth: "110ch" }}>{search.interpretation}</div>
             )}
             <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
               {data.results.length ? (
