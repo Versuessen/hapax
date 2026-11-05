@@ -160,7 +160,7 @@ export const GUIDES = {
     title: "Contents & metadata",
     purpose: "Check what a corpus contains before you search it: its size, its annotation and the values of its metadata.",
     steps: [
-      "Select a corpus.",
+      "Select a corpus in the table. Select a column heading to sort, for example by Tokens or Status.",
       "Choose a metadata attribute and select Load values to see each value and how much of the corpus it covers.",
       "Select the filter icon next to a value to use it as a document filter in Search.",
     ],

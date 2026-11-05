@@ -21,8 +21,8 @@ const CAVEATS = {
   "BNC2014-S": "Spoken data with speaker metadata (age, gender, occupation). Treat exports as potentially sensitive.",
 };
 
-/** One line stating when the corpus list was last checked against the server. */
-function CorpusCheck() {
+/** When the corpus list was last checked against the server, plus a re-check action. */
+function useCorpusCheck() {
   const { corpusCheck, connection, discover, busy, info } = useApp();
   const total = Object.values(info?.corpora || {}).filter((c) => c.available !== false).length;
   let text;
@@ -35,11 +35,97 @@ function CorpusCheck() {
     if (corpusCheck.missing.length) bits.push(`not on the server: ${corpusCheck.missing.join(", ")}`);
     text = `Checked against the server registry at ${t} · ${bits.join(" · ")}`;
   }
+  const action = connection.connected
+    ? <button type="button" className="btn btn--ghost" disabled={!!busy} onClick={discover}>Check again</button>
+    : null;
+  return { text, action };
+}
+
+/** Status of a corpus in one or two words, with a tone for the dot. */
+function corpusStatus(ci) {
+  if (ci.available === false) return ["Offline", "var(--text-4)", "Not in the server registry when you connected"];
+  if (ci.encoding === "<unsupported>") return ["Not searchable", "var(--warning)", "The registry declares a character encoding CQP does not accept"];
+  if (ci.source === "discovered") return ["Unverified", "var(--accent-blue)", "Found on the server; not in Hapax's verified list"];
+  return ["Searchable", "var(--positive)", "Available on the server"];
+}
+
+const SORTS = {
+  name: { label: "Corpus", key: (c) => c.toLowerCase() },
+  variety: { label: "Variety", key: null }, // null = the sidebar's grouped order
+  tokens: { label: "Tokens", key: (c, ci) => ci.tokens || 0, num: true, desc: true },
+  annotation: { label: "Annotation", key: (c) => corpusFamily(c)?.label || "" },
+  metadata: { label: "Metadata", key: (c, ci) => (ci.metadata || []).length, num: true, desc: true },
+  status: { label: "Status", key: (c, ci) => corpusStatus(ci)[0] },
+};
+
+/** Every corpus in one sortable table; selecting a row shows its details below. */
+function CorpusTable({ selected, onSelect }) {
+  const { info } = useApp();
+  const [sort, setSort] = useState({ by: "variety", desc: false });
+  const check = useCorpusCheck();
+  const base = orderedCorpora(info);
+  const rows = (() => {
+    const s = SORTS[sort.by];
+    if (!s.key) return sort.desc ? [...base].reverse() : base;
+    const k = (c) => s.key(c, info.corpora[c]);
+    return [...base].sort((a, b) => {
+      const x = k(a), y = k(b);
+      const r = typeof x === "number" ? x - y : String(x).localeCompare(String(y));
+      return (sort.desc ? -r : r) || base.indexOf(a) - base.indexOf(b);
+    });
+  })();
+  const header = (id, extra = {}) => {
+    const s = SORTS[id];
+    const on = sort.by === id;
+    return (
+      <th className={s.num ? "num" : undefined} aria-sort={on ? (sort.desc ? "descending" : "ascending") : "none"} {...extra}>
+        <button type="button" className="th-sort" onClick={() => setSort(on ? { by: id, desc: !sort.desc } : { by: id, desc: !!s.desc })}>
+          {s.label}
+          <span aria-hidden="true" className="th-sort__arrow">{on ? (sort.desc ? "↓" : "↑") : ""}</span>
+        </button>
+      </th>
+    );
+  };
   return (
-    <div className="row mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)", marginBottom: 12, gap: 12 }}>
-      <span>{text}</span>
-      {connection.connected && <button type="button" className="btn btn--ghost" style={{ height: 28 }} disabled={!!busy} onClick={discover}>Check again</button>}
-    </div>
+    <Card flush title={`${base.length} corpora`} sub={check.text} actions={check.action} style={{ marginBottom: 16 }}>
+      <div tabIndex={0} role="region" aria-label="Corpora" className="table-wrap corpus-table" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+        <table className="table">
+          <thead>
+            <tr>
+              {header("name")}
+              {header("variety", { className: "corpus-table__variety" })}
+              {header("tokens")}
+              {header("annotation", { className: "corpus-table__annotation" })}
+              {header("metadata", { className: "num corpus-table__meta" })}
+              {header("status")}
+              <th className="corpus-table__desc">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((c) => {
+              const ci = info.corpora[c];
+              const [status, tone, why] = corpusStatus(ci);
+              return (
+                <tr key={c} data-clickable="true" aria-selected={c === selected} onClick={() => onSelect(c)}>
+                  <td>
+                    <button type="button" className="corpus-table__name" aria-pressed={c === selected} onClick={(e) => { e.stopPropagation(); onSelect(c); }}>
+                      <Flag variety={ci.variety} note={ci.variety_note} />
+                      <span>{c}</span>
+                    </button>
+                  </td>
+                  <td className="muted corpus-table__variety">{ci.variety_note || varietyInfo(ci.variety).label}</td>
+                  <td className="num">{ci.tokens ? compact(ci.tokens) : "—"}</td>
+                  <td className="muted corpus-table__annotation">{corpusFamily(c)?.label}</td>
+                  <td className="num corpus-table__meta">{(ci.metadata || []).length || "—"}</td>
+                  <td title={why}><span className="corpus-table__status"><span className="dot" style={{ background: tone }} />{status}</span></td>
+                  <td className="muted corpus-table__desc">{ci.description}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 
@@ -73,20 +159,7 @@ export default function Corpus() {
     <div className="page">
       <PageHeader aside={ci ? `${name} · ${compact(ci.tokens)} tokens` : name} />
 
-      <CorpusCheck />
-      <div className="grid grid--kpi" style={{ marginBottom: 16, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-        {orderedCorpora(info).map((c) => (
-          <button key={c} type="button" className="card" onClick={() => { setName(c); setAttr(""); setValues(null); setField(null); }} aria-pressed={c === name}
-            style={{ textAlign: "left", padding: "var(--space-4)", color: "inherit", borderColor: c === name ? "var(--border-strong)" : undefined, background: c === name ? "linear-gradient(180deg, var(--surface-active-top), var(--surface-active-bottom))" : undefined }}>
-            <div className="row" style={{ flexWrap: "nowrap" }}>
-              <Flag variety={info.corpora[c].variety} note={info.corpora[c].variety_note} />
-              <span style={{ fontWeight: 500 }}>{c}</span>
-              <span className="mono" style={{ marginLeft: "auto", fontSize: "var(--fs-mono)", color: "var(--text-3)" }}>{info.corpora[c].available === false ? "offline" : info.corpora[c].tokens ? compact(info.corpora[c].tokens) : "—"}</span>
-            </div>
-            <div style={{ color: "var(--text-2)", fontSize: "var(--fs-small)", marginTop: 8, lineHeight: 1.4 }}>{info.corpora[c].description}</div>
-          </button>
-        ))}
-      </div>
+      <CorpusTable selected={name} onSelect={(c) => { setName(c); setAttr(""); setValues(null); setField(null); }} />
 
       <div className="grid grid--split" style={{ alignItems: "start" }}>
         <div className="stack">
@@ -120,7 +193,7 @@ export default function Corpus() {
 
           {values && values.corpus === name && (
             <Card flush title={<><strong>{thousands(values.data.groups.length)}</strong> values of {values.attr}</>} sub={`${seconds(values.elapsed)}${values.data.truncated ? " · first 1,000" : ""}`}>
-              <div tabIndex={0} role="region" aria-label="Structural attributes" className="table-wrap" style={{ "--table-max": "480px", borderTop: "1px solid var(--border-subtle)" }}>
+              <div tabIndex={0} role="region" aria-label="Metadata values" className="table-wrap" style={{ "--table-max": "480px", borderTop: "1px solid var(--border-subtle)" }}>
                 <table className="table">
                   <thead><tr><th>Value</th><th className="num">Regions</th><th style={{ width: "24%" }}><span className="sr-only">Share</span></th><th className="num">Tokens</th><th><span className="sr-only">Use as filter</span></th></tr></thead>
                   <tbody>
@@ -141,7 +214,7 @@ export default function Corpus() {
         </div>
 
         <Card flush title="Structural attributes" sub="Regions per attribute (verified inventory)">
-          <div tabIndex={0} role="region" aria-label="Metadata values" className="table-wrap" style={{ "--table-max": "640px", borderTop: "1px solid var(--border-subtle)" }}>
+          <div tabIndex={0} role="region" aria-label="Structural attributes" className="table-wrap" style={{ "--table-max": "640px", borderTop: "1px solid var(--border-subtle)" }}>
             <table className="table">
               <tbody>
                 {Object.entries(ci.structural).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
