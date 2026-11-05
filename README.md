@@ -113,7 +113,8 @@ key built into the app. On Linux the package manager asks for your password.
 1. **Connect.** Select the connection status in the top bar, enter your university username
    and password, and confirm the server's host key the first time. You can store the password
    in your system keychain (Windows Credential Manager, KWallet or GNOME Keyring).
-2. **Choose a corpus** under *Working corpus* in the sidebar.
+2. **Choose a corpus** under *Working corpus* in the sidebar (on narrower windows, with the corpus
+   switcher in the top bar).
 3. **Search.** In *Find examples → Search*, choose what to match and type a value. Select
    *Add word* to search for a phrase. Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>.
 4. **Analyse.** The *Analyse results* screens work on your current search.
@@ -129,7 +130,7 @@ To see how often each variant appears in British and American English of the 196
 3. Select *Compare*. To split *I* from *me*, open *Count by annotation*, group by *Written word*
    and count the *Last token*.
 
-The same search, copied with *Run this in your own SSH terminal*:
+The same search, copied from *Query* (under the search form) as *cqp> prompt*:
 
 ```
 BROWN-LEGACY;

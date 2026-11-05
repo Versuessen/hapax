@@ -101,17 +101,17 @@ Priority = (Impact × Frequency × Confidence) / Effort, used for ranking only.
 | R2 | Page title < 560 px | Qualifier wrapped to 3 lines at 32 px | Own line at 18 px | Low | High | Low | 4.0 | Implemented |
 | R3 | Section tabs < 760 px | Clipped with no cue; selected tab could be off-screen | Edge fade; selected tab scrolled into view | Med | High | Low | 6.0 | Implemented |
 | H1 | Methods & help | Guide panel on a page that is itself the guide | Removed there | Low | High | Low | 3.0 | Implemented |
-| P1–P5 | see E | Structural | see E | — | Med | Med–High | — | Proposed |
+| P1–P5 | see E | Structural | see E | — | Med | Med–High | — | Implemented (approved) |
 
-## E. Restructuring proposals (awaiting approval)
+## E. Restructuring proposals (approved and implemented)
 
-| ID | Proposal | Why | Trade-off |
-|---|---|---|---|
-| P1 | **Two-column Search from 1280 px**: form left (sticky, scrolls independently), results right | Query and results visible together; refine-and-rerun without scrolling (the commonest loop) | Narrower concordance lines; needs a careful KWIC width at 1280–1440 |
-| P2 | **Home as "continue"**: replace the large Nearby-words chart with last search (rerun / analyse), recent searches and evidence status | The chart duplicates *Nearby words* and only fills after a search; a returning user's first need is to resume | The chart is visually striking; it moves to its own screen only |
-| P3 | **Corpora → Contents as a table** (variety, size, annotation, status, description) instead of 11 cards | Cards repeat the sidebar list; a table is denser, sortable, and comparable | Less visual; descriptions truncate |
-| P4 | **Tablet (≤ 1100 px): sidebar as icon rail with a corpus switcher in the top bar** | Gives 220 px back at 1024 | The grouped corpus list is no longer always visible |
-| P5 | **One "Query" disclosure** combining the CQP preview and terminal commands | Two adjacent boxes show the same query twice | Generated CQP is a trust feature; must stay one click away |
+| ID | Proposal | Why | Trade-off | As built |
+|---|---|---|---|---|
+| P1 | **Two-column Search**: form left (sticky, scrolls independently), results right | Query and results visible together; refine-and-rerun without scrolling (the commonest loop) | Narrower concordance lines | Container query on the page: two columns from 1040 px of *content* width (1440 window with sidebar, 1280 with the rail, any width ≤ 1100 with the rail from P4). Editing the query moves results 93 px (the stale notice) instead of re-flowing the page. `1776c52` |
+| P2 | **Home as "continue"**: replace the large Nearby-words chart with last search (rerun / analyse), recent searches and evidence status | The chart duplicates *Nearby words* and only fills after a search; a returning user's first need is to resume | The chart is visually striking; it remains on its own screen | Three states: *Current search* (Show results, Count, Spread, Compare), *Continue where you left off* (Run again, Edit, New search) and, on first run, *Start* (three ways in). Recent and saved searches beside it, one click to load. `a1cb105` |
+| P3 | **Corpora → Contents as a table** (variety, size, annotation, status, description) instead of 11 cards | Cards repeat the sidebar list; a table is denser, sortable, and comparable | Less visual; descriptions drop out on narrow windows | Sortable headings with `aria-sort`; status words (Searchable, Not searchable, Offline, Unverified) explain themselves on hover; description, annotation, metadata and variety columns drop out at 1100 / 820 / 560 px of content. `7a42c9b` |
+| P4 | **Tablet (≤ 1100 px): sidebar as icon rail with a corpus switcher in the top bar** | Gives 216 px back at 1024 | The grouped corpus list is no longer always visible | The switcher appears whenever the sidebar is a rail, also when collapsed by hand at any width, and on phones, where the corpus list was previously unreachable. Grouped by variety, arrow keys, Esc returns focus. `a2bdccb` |
+| P5 | **One "Query" disclosure** combining the CQP preview and terminal commands | Two adjacent boxes show the same query twice | Generated CQP is a trust feature; must stay one click away | Closed, the bar still shows the CQP on one line with Copy, so it is zero clicks away; open, it switches CQP / cqp> prompt / Shell script and saves to a file. Validation errors are never folded away. Single-column refine movement 509 → 393 px. `f64dfa2` |
 
 Not recommended: merging Count / Nearby / Spread into one screen (different questions, different
 controls; tabs already make them one click apart).
@@ -121,8 +121,10 @@ controls; tabs already make them one click apart).
 - **Keep:** the query builder model (words, alternatives, filters), Segmented controls for 2–3
   options, chips for corpus selection, the console, explicit Count/Compare buttons (server work is
   never implicit).
-- **Changed:** `PageHeader` guide (learns), `TerminalBlock` (disclosure), `Sidebar` (one-click
-  sections, correct state), `Card` (forwards refs for scroll targets), `Tabs` (keeps selection visible).
+- **Changed:** `PageHeader` guide (learns), `TerminalBlock` (disclosure; shares its fetching with the
+  new `QueryPanel`), `Sidebar` (one-click sections, correct state, rail ≤ 1100 px), `Topbar` (corpus
+  switcher), `Card` (forwards refs for scroll targets), `Tabs` (keeps selection visible). `CqpPreview`
+  was removed in favour of `QueryPanel`.
 - **Next:** make filter rows reusable as saved presets ("BNC spoken 1990s") — removes the most
   repeated setup in the compare workflow.
 
@@ -143,6 +145,11 @@ colours meet 4.5:1 for all text roles measured.
 | Compare the current search with one other corpus | Open Compare, deselect 2 defaults, *Use current search*, select corpus, Compare = 5 actions | Open Compare, select corpus, Compare = 3 actions |
 | Save the current search with the keyboard | Ctrl+S did nothing | Ctrl+S opens Save |
 | Pick a corpus while on Home or Corpora | Jumped to Search (context lost) | Stays on the page |
+| Edit a search and rerun (1440 px) | Scroll up to the form, edit, Search, scroll down | Edit beside the results, Search; results stay in place |
+| Resume yesterday's search | Find Saved & recent, Run | Home → Run again |
+| Find the largest corpus with speaker metadata | Read 11 cards | Sort the table by Tokens or Metadata |
+| Switch corpus at 1024 px | Sidebar dots without names (tooltips only) | Top-bar switcher with names and sizes |
+| Copy the generated CQP | Select text in the preview box | Copy on the closed Query bar |
 
 ![Search right after pressing Search, before and after](images/audit/search-before-after.png)
 
@@ -150,11 +157,11 @@ colours meet 4.5:1 for all text roles measured.
 
 ## I. Roadmap
 
-1. **Done in this pass:** U1–U3, B1–B3, W1–W2, A1–A5, D1–D3, R1–R3, H1.
-2. **Shared components:** filter presets; a `Table` component owning scroll region, header and export.
-3. **Workflow:** P1 two-column Search; P5 single query disclosure.
-4. **Architecture:** P2 Home as "continue", P3 corpus table, P4 tablet rail.
-5. **Longer term:** usage telemetry kept local and opt-in, to replace judgement with measured task times.
+1. **Done in the first pass:** U1–U3, B1–B3, W1–W2, A1–A5, D1–D3, R1–R3, H1.
+2. **Done in the second pass (approved):** P1–P5, each committed and verified separately.
+3. **Next — shared components:** filter presets; a `Table` component owning scroll region, sortable
+   header (as in P3) and export.
+4. **Longer term:** usage telemetry kept local and opt-in, to replace judgement with measured task times.
 
 ## J. Implementation report
 
@@ -167,6 +174,15 @@ Verification: axe-core on 28 screen/theme combinations → 0 violations (from 68
 suite 18/18; IA suite all pass (Help now expects no guide); feature scripts (filters, counts,
 compare, forms) pass; no console errors; no horizontal overflow at 390 / 1024 / 1440; position
 measurements before/after in section H and in the commit.
+
+Second pass (P1–P5): `Search.jsx`, `Overview.jsx`, `Corpus.jsx`, `Sidebar.jsx`, `Topbar.jsx`,
+`TerminalBlock.jsx` (`QueryPanel`), `QueryBuilder.jsx`, `App.jsx`, `guides.js`, `layout.css`,
+`components.css`. Each proposal has its own Playwright script (layout positions, sort order and
+`aria-sort`, menu keyboard and focus return, panel persistence, error visibility) at 390, 1024, 1100,
+1280, 1440 and 1920 px. After all five: axe-core 0 violations on 28 screen/theme combinations;
+regression 18/18; IA suite all pass; filter and feature scripts pass; no console errors; no horizontal
+overflow. The pass also removed an orphaned CSS block (left from the old card graphic) that made the
+browser discard the `.field` rule after it.
 
 Remaining risks: behaviour against the real server is unchanged but untested here; WebView2 and
 KDE rendering of the type changes are unverified; the guide "learning" is per computer.

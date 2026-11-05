@@ -27,7 +27,9 @@ Rules the interface follows. Use them when adding a screen or a component.
 - Colours come from the tokens in `src/styles/tokens.css`. Both themes are first-class; every
   change is checked in dark and light.
 - Text meets WCAG AA contrast (4.5 : 1) in both themes. Focus is always visible.
-- Layouts work from 420 px wide (sub-navigation becomes tabs; the sidebar becomes a bottom bar).
+- Layouts work from 420 px wide. Below 1100 px the sidebar is an icon rail and the working corpus
+  moves to a switcher in the top bar; on phones the rail becomes a bottom bar. Search uses two
+  columns (query beside results) from 1040 px of content width.
 
 ## Behaviour
 
