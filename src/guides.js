@@ -10,15 +10,15 @@
 export const GUIDES = {
   home: {
     title: "Home",
-    purpose: "See whether you are connected, which corpus you are working in, and what you have run in this session.",
+    purpose: "Pick up where you left off: your connection, the corpus you are working in, and your current or last search with its next steps.",
     steps: [
-      "Connect: select the connection status in the top bar and sign in with your university account.",
-      "Choose a corpus under Working corpus in the sidebar, or press Ctrl+K and type its name.",
-      "Open Find examples → Search to run your first query.",
+      "If Corpus server says Not connected, select it and sign in with your university account.",
+      "Under Current search, go back to the results or straight to an analysis. Without one, Continue where you left off reruns your last search.",
+      "Select any recent or saved search to load it into Search.",
     ],
     notes: [
       "Hapax only reads from the corpus server. Nothing you do here changes the corpora.",
-      "Figures on this page describe your current search. Session activity is cleared when you close the app.",
+      "Recent searches are kept on this computer (the last 20). This session's activity is cleared when you close the app.",
     ],
   },
 
