@@ -16,7 +16,34 @@ export const queryKey = (q) =>
   JSON.stringify([q.corpus, q.field, q.value, !!q.regex, !!q.ignore_case, q.second_field, q.second_value, Number(q.gap || 0), !!q.sentence_only, q.meta_attr, q.meta_value, (q.next || []).map((t) => [t.field, t.value, Number(t.gap || 0), !!t.optional]), (q.filters || []).map((f) => [f.attr, f.op, f.value, f.from ?? null, f.to ?? null])]);
 
 let toastSeq = 0;
+/** Filter presets lived in localStorage before 1.x; copy them into preferences.json once. */
+const LEGACY_PRESETS = "hapax.filterPresets";
+async function migratePresets(p) {
+  let old;
+  try { old = JSON.parse(localStorage.getItem(LEGACY_PRESETS) || "null"); } catch { old = null; }
+  if (!old || typeof old !== "object") return p;
+  let all = p.filter_presets || {};
+  let failed = false;
+  for (const [corpus, list] of Object.entries(old)) {
+    if (!Array.isArray(list) || !list.length) continue;
+    const have = all[corpus] || [];
+    const merged = [...have, ...list.filter((x) => !have.some((h) => h.name === x?.name))];
+    try { all = await invoke("set_filter_presets", { corpus, presets: merged }); }
+    catch { failed = true; } // unknown corpus or a filter it no longer accepts: keep the local copy
+  }
+  if (!failed) try { localStorage.removeItem(LEGACY_PRESETS); } catch { /* ignore */ }
+  return { ...p, filter_presets: all };
+}
+
 const DRAFT_KEY = "hapax.evidence.draft";
+/** The query form as last left (run or not), restored on the next start. */
+const QUERY_KEY = "hapax.query.draft";
+const readQueryDraft = () => {
+  try {
+    const q = JSON.parse(localStorage.getItem(QUERY_KEY) || "null");
+    return q && typeof q === "object" && typeof q.corpus === "string" ? q : null;
+  } catch { return null; }
+};
 
 export function AppProvider({ children }) {
   const [info, setInfo] = useState(null);
@@ -87,6 +114,17 @@ export function AppProvider({ children }) {
       else localStorage.removeItem(DRAFT_KEY);
     } catch { /* storage full or blocked: the in-window notebook still works */ }
   }, [evidence, evidenceDirty]);
+  useEffect(() => {
+    if (!draftReady.current) return;
+    const t = setTimeout(() => {
+      try {
+        const blank = !query.value && !(query.filters || []).length && !(query.next || []).length && !query.second_value && !query.meta_value;
+        if (blank) localStorage.removeItem(QUERY_KEY);
+        else localStorage.setItem(QUERY_KEY, JSON.stringify(query));
+      } catch { /* storage blocked: the form simply starts empty next time */ }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [query]);
   const [workflow, setWorkflow] = useState({ corpus: "BNC-BABY", steps: [], result: null, request: null, mode: "results" });
 
   const persistTheme = useCallback((t) => {
@@ -133,9 +171,13 @@ export function AppProvider({ children }) {
       try {
         const [i, p, s] = await Promise.all([invoke("get_app_info"), invoke("get_preferences"), invoke("ssh_status")]);
         setInfo(i);
-        setPrefs(p);
+        setPrefs(await migratePresets(p));
         setConnection(s);
-        setQuery((q) => ({ ...q, corpus: i.corpora[p.corpus] ? p.corpus : q.corpus }));
+        const kept = readQueryDraft();
+        setQuery((q) =>
+          kept && i.corpora[kept.corpus]
+            ? { ...EMPTY_QUERY, ...kept }
+            : { ...q, corpus: i.corpora[p.corpus] ? p.corpus : q.corpus });
         if (p.theme && ["dark", "light", "system"].includes(p.theme) && !localStorage.getItem("cqp.theme")) theme.setPref(p.theme);
         if (s.connected) discover(); // already connected (e.g. after a reload): re-check the corpus list
       } catch (e) {

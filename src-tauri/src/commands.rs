@@ -20,7 +20,7 @@ use crate::guide::{self, Explanation, GlossaryRow, Recipe, RecipeInput};
 use crate::parse::{self, *};
 use crate::query::*;
 use crate::ssh::{ConnectParams, HostKeyPrompt, SshSession, TrustDecider};
-use crate::storage::{self, Preferences, SavedSearch};
+use crate::storage::{self, FilterPreset, Preferences, SavedSearch};
 use crate::workflow::{self, CompiledWorkflow, WorkflowRequest};
 
 pub const HOST_KEY_EVENT: &str = "ssh://host-key-prompt";
@@ -92,7 +92,13 @@ pub async fn get_preferences(state: State<'_, AppState>) -> AppResult<Preference
 
 #[tauri::command]
 pub async fn save_preferences(state: State<'_, AppState>, preferences: Preferences) -> AppResult<Preferences> {
-    state.update_prefs(|p| *p = preferences)
+    // Presets are written only through `set_filter_presets` (validated), so a
+    // general save from a stale copy cannot drop or alter them.
+    state.update_prefs(|p| {
+        let presets = std::mem::take(&mut p.filter_presets);
+        *p = preferences;
+        p.filter_presets = presets;
+    })
 }
 
 #[tauri::command]
@@ -113,6 +119,55 @@ pub async fn save_search(state: State<'_, AppState>, name: String, query: QueryS
 #[tauri::command]
 pub async fn delete_saved_search(state: State<'_, AppState>, name: String) -> AppResult<Vec<SavedSearch>> {
     Ok(state.update_prefs(|p| p.saved_searches.retain(|s| s.name != name))?.saved_searches)
+}
+
+/// Presets per corpus, at most this many.
+const MAX_PRESETS: usize = 50;
+
+/// Replace one corpus's filter presets (an empty list removes them) and return
+/// all presets. Every filter is validated as if it were about to be searched,
+/// so a preset can never carry a value the query builder would refuse.
+#[tauri::command]
+pub async fn set_filter_presets(
+    state: State<'_, AppState>,
+    corpus: String,
+    presets: Vec<FilterPreset>,
+) -> AppResult<std::collections::BTreeMap<String, Vec<FilterPreset>>> {
+    let presets = check_filter_presets(&corpus, presets)?;
+    Ok(state
+        .update_prefs(|p| {
+            if presets.is_empty() {
+                p.filter_presets.remove(&corpus);
+            } else {
+                p.filter_presets.insert(corpus.clone(), presets);
+            }
+        })?
+        .filter_presets)
+}
+
+pub(crate) fn check_filter_presets(corpus: &str, presets: Vec<FilterPreset>) -> AppResult<Vec<FilterPreset>> {
+    crate::corpora::get(corpus)?;
+    if presets.len() > MAX_PRESETS {
+        return Err(AppError::Validation(format!("At most {MAX_PRESETS} presets per corpus")));
+    }
+    let mut out: Vec<FilterPreset> = Vec::with_capacity(presets.len());
+    for mut p in presets {
+        p.name = p.name.trim().to_string();
+        if p.name.is_empty() || p.name.chars().count() > 80 {
+            return Err(AppError::Validation("Give the preset a name (1–80 characters)".into()));
+        }
+        p.filters.retain(|f| !f.attr.is_empty());
+        if p.filters.is_empty() || p.filters.len() > crate::query::MAX_FILTERS {
+            return Err(AppError::Validation(format!("A preset holds 1–{} filters", crate::query::MAX_FILTERS)));
+        }
+        for f in &p.filters {
+            crate::query::filter_constraint(f, corpus)?;
+        }
+        out.retain(|x| x.name != p.name);
+        out.push(p);
+    }
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(out)
 }
 
 // ===========================================================================
@@ -780,5 +835,34 @@ mod ll_tests {
         assert!(super::log_likelihood(10.0, 1e6, 10.0, 1e6).abs() < 1e-9);
         let ll = super::log_likelihood(30.0, 1e6, 10.0, 1e6);
         assert!((ll - 10.46).abs() < 0.01, "{ll}");
+    }
+}
+
+#[cfg(test)]
+mod preset_tests {
+    use super::*;
+    use crate::query::MetaFilter;
+
+    fn f(attr: &str, value: &str) -> MetaFilter {
+        MetaFilter { attr: attr.into(), op: "is".into(), value: value.into(), ..Default::default() }
+    }
+
+    #[test]
+    fn presets_are_validated_deduplicated_and_sorted() {
+        let ok = check_filter_presets("LOB-LEGACY", vec![
+            FilterPreset { name: " b ".into(), filters: vec![f("file_id", "A01")] },
+            FilterPreset { name: "a".into(), filters: vec![f("file_id", "A02"), f("", "")] },
+            FilterPreset { name: "b".into(), filters: vec![f("file_id", "A03")] },
+        ]).unwrap();
+        assert_eq!(ok.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["a", "b"]);
+        assert_eq!(ok[0].filters.len(), 1); // the blank row is dropped
+        assert_eq!(ok[1].filters[0].value, "A03"); // the later "b" replaces the earlier
+
+        let bad = |p: FilterPreset| check_filter_presets("LOB-LEGACY", vec![p]).is_err();
+        assert!(bad(FilterPreset { name: "".into(), filters: vec![f("file_id", "A01")] }));
+        assert!(bad(FilterPreset { name: "x".into(), filters: vec![] }));
+        assert!(bad(FilterPreset { name: "x".into(), filters: vec![f("nope", "A01")] }));
+        assert!(bad(FilterPreset { name: "x".into(), filters: vec![f("file_id", "a\"; drop")] }));
+        assert!(check_filter_presets("NO-SUCH-CORPUS", vec![]).is_err());
     }
 }

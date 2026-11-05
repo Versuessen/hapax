@@ -59,6 +59,13 @@ pub struct SavedSearch {
     pub query: Value,
 }
 
+/// A named set of document filters for one corpus (metadata differs between corpora).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FilterPreset {
+    pub name: String,
+    pub filters: Vec<crate::query::MetaFilter>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Preferences {
     #[serde(default = "default_host")]
@@ -73,6 +80,9 @@ pub struct Preferences {
     pub saved_searches: Vec<SavedSearch>,
     #[serde(default = "default_zoom")]
     pub zoom_percent: u32,
+    /// Filter presets keyed by corpus id. Absent in older files; empty maps are not written.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub filter_presets: std::collections::BTreeMap<String, Vec<FilterPreset>>,
     /// Unknown keys are preserved on save (forward compatibility with Phase 2 UI settings).
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -166,6 +176,8 @@ mod tests {
         assert_eq!(p.saved_searches.len(), 1);
         let back = serde_json::to_value(&p).unwrap();
         assert_eq!(back["future_key"], true);
+        assert!(p.filter_presets.is_empty());
+        assert!(back.get("filter_presets").is_none(), "older files stay as they were until a preset is saved");
         assert_eq!(Preferences::default().host, DEFAULT_HOST);
     }
 

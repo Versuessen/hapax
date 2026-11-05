@@ -28,10 +28,11 @@ export const GUIDES = {
     steps: [
       "Choose what to match in Find by: the written word, all forms of a word (lexeme), or an annotation such as a part-of-speech tag.",
       "Type the value. For a phrase, select Add word for each following word; I|me matches either form. All forms finds every inflection of the word (bigger, biggest).",
-      "To search only part of the corpus, select Add filter under Only in documents where — for example spoken texts, a speaker group or a range of years. Every filter must hold. Presets saves a set of filters under a name for reuse here, in Count by annotation and in Compare.",
-      "Select Search (Ctrl+Enter). The count covers the whole (filtered) corpus; the list shows one page at a time.",
+      "To search only part of the corpus, select Add filter under Only in documents where — for example spoken texts, a speaker group or a range of years. Every filter must hold. Presets saves a set of filters under a name for reuse here, in Count by annotation and in Compare; presets are kept in preferences.json with your saved searches.",
+      "Select Search (Ctrl+Enter). The count covers the whole (filtered) corpus; the list shows one page at a time. In a long list, type a number in Go to # to jump to that match.",
     ],
     notes: [
+      "The form is kept as you left it, run or not, and comes back when you reopen Hapax.",
       "Values match exactly. Use Ignore case for capitalisation and Regex (under Advanced) for patterns.",
       "In a filter, several values (picked from the list, or typed with |) mean any of them. A year range matches values that start with a year in that range, so “1985-1993” counts as 1985.",
       "Query, under the form, shows the generated CQP — exactly what runs on the server. Open it to switch to cqp> prompt or Shell script and copy the commands into your own SSH session.",

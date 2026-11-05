@@ -207,7 +207,25 @@ const handlers = {
   save_text: ({ path }) => path,
   terminal_commands: ({ op, request, style }) => fakeTerminal(op, request, style),
   terminal_from_payload: ({ payload, style }) => fakeTerminal(payload.op, payload, style),
-  save_preferences: ({ preferences }) => (prefs = structuredClone(preferences)),
+  // Presets are kept: only set_filter_presets writes them (as in commands.rs).
+  save_preferences: ({ preferences }) => (prefs = { ...structuredClone(preferences), filter_presets: prefs.filter_presets }),
+  set_filter_presets: ({ corpus, presets }) => {
+    if (!corpora[corpus]) throw { kind: "validation", message: `Unknown corpus '${corpus}'` };
+    const out = [];
+    for (const p of presets) {
+      const name = String(p.name || "").trim();
+      if (!name || name.length > 80) throw { kind: "validation", message: "Give the preset a name (1–80 characters)" };
+      const filters = (p.filters || []).filter((f) => f.attr);
+      if (!filters.length || filters.length > 6) throw { kind: "validation", message: "A preset holds 1–6 filters" };
+      compile({ corpus, field: "word", value: "x", filters });
+      out.splice(0, out.length, ...out.filter((x) => x.name !== name), { name, filters });
+    }
+    out.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    const all = { ...(prefs.filter_presets || {}) };
+    if (out.length) all[corpus] = out; else delete all[corpus];
+    prefs.filter_presets = all;
+    return structuredClone(all);
+  },
   save_search: ({ name, query }) => {
     compile(query);
     prefs.saved_searches = prefs.saved_searches.filter((s) => s.name !== name).concat([{ name, query }]);

@@ -40,6 +40,14 @@ export default function Search() {
   const keyRef = useRef(queryKey(query));
   const resultsRef = useRef(null);
   const pendingScroll = useRef(false);
+  // After "Go to match", centre the chosen line (runs after Kwic's own "nearest" scroll).
+  const jumped = useRef(null);
+  useEffect(() => {
+    if (jumped.current == null || selected !== jumped.current) return;
+    jumped.current = null;
+    pendingScroll.current = false;
+    document.querySelector(`.kwic__row[data-i="${selected}"]`)?.scrollIntoView({ block: "center" });
+  }, [selected, search]);
   // Bring fresh results into view; the form stays one scroll up.
   useEffect(() => {
     if (!pendingScroll.current || !resultsRef.current) return;
@@ -67,7 +75,7 @@ export default function Search() {
       return;
     }
     const interpretation = await invoke("interpret_search", { query, total: out.data.total }).catch(() => null);
-    setSelected(null);
+    setSelected(opts.select ?? null);
     setSearch({ key, request, data: out.data, elapsed: out.elapsed_seconds, cached: out.cached, interpretation });
     if (offset === 0) remember(query, out.data.total);
     pendingScroll.current = true; // scrolled once the results have rendered (effect below)
@@ -209,6 +217,15 @@ export default function Search() {
                 <Select small aria-label="Context words" value={context} options={[[2, "± 2 words"], [4, "± 4 words"], [6, "± 6 words"], [10, "± 10 words"]]} onChange={(e) => { const v = Number(e.target.value); setContext(v); !stale && execute(page.offset, { context: v }); }} style={{ width: 120 }} />
                 <Button icon={ChevronLeft} aria-label="Previous page" disabled={stale || page.offset === 0 || !!busy} onClick={() => execute(Math.max(0, page.offset - page.limit))} />
                 <Button icon={ChevronRight} aria-label="Next page" disabled={stale || to >= data.total || !!busy} onClick={() => execute(page.offset + page.limit)} />
+                {data.total > page.limit && (
+                  <GoToMatch total={data.total} disabled={stale || !!busy}
+                    onGo={(n) => {
+                      const off = Math.floor((n - 1) / page.limit) * page.limit;
+                      jumped.current = n - 1 - off;
+                      if (off === page.offset) setSelected(n - 1 - off);
+                      else execute(off, { select: n - 1 - off });
+                    }} />
+                )}
                 <Button variant="ghost" icon={focus ? Minimize2 : Maximize2} onClick={() => setFocus((f) => !f)} aria-pressed={focus}>{focus ? "Show query" : "Focus results"}</Button>
               </div>
             </div>
@@ -273,6 +290,24 @@ export default function Search() {
       <Dialog open={confirmAll} onClose={() => setConfirmAll(false)} title="Export the first 5,000 matches?"
         text={`There are ${thousands(data?.total || 0)} matches. To protect the shared server this exports only the first 5,000 (in the current sort order); the provenance file records that the export is partial.`}
         footer={<><Button onClick={() => setConfirmAll(false)}>Cancel</Button><Button variant="primary" onClick={exportAll}>Choose file…</Button></>} />
+    </div>
+  );
+}
+
+/** Jump to the page holding match N and select that line. */
+function GoToMatch({ total, disabled, onGo }) {
+  const [v, setV] = useState("");
+  const n = Number(v);
+  const valid = Number.isInteger(n) && n >= 1 && n <= total;
+  const go = () => { if (valid && !disabled) { onGo(n); setV(""); } };
+  return (
+    <div className="goto" title={`Show match 1–${thousands(total)} and select it`}>
+      <label className="sr-only" htmlFor="goto-match">Go to match number</label>
+      <input id="goto-match" className="input input--sm mono goto__input" inputMode="numeric" placeholder="Go to #" autoComplete="off"
+        value={v} disabled={disabled} aria-invalid={v !== "" && !valid ? true : undefined}
+        onChange={(e) => setV(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); go(); } }} />
+      <Button disabled={!valid || disabled} onClick={go}>Go</Button>
     </div>
   );
 }

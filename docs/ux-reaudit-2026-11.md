@@ -88,9 +88,9 @@ Score = Impact × Frequency × Confidence ÷ Effort (heuristic).
 | Q5 | Save search | Saving under an existing name replaced it silently | Inline warning; the button reads *Replace* | 4 | 2 | 0.9 | 1 | 7.2 | Quick win | **Done** |
 | Q6 | Search, Count, Compare | The same metadata filters were rebuilt by hand in every tool | Named filter presets per corpus, Undo on apply and delete | 4 | 3 | 0.7 | 3 | 2.8 | Structural | **Done** |
 | Q7 | Evidence | A failed save still marked the notebook as saved | Mark it saved only on success | 4 | 1 | 1.0 | 1 | 4.0 | Defect | **Done** |
-| Q8 | Results | Only Previous/Next for long result lists | "Go to match N" | 2 | 2 | 0.6 | 2 | 1.2 | Quick win | Next |
-| Q9 | Search form | An unrun query is lost on restart | Persist the form draft | 2 | 1 | 0.6 | 1 | 1.2 | Quick win | Next |
-| Q10 | Presets | Stored in WebView storage, not in `preferences.json` with saved searches | Move to the Rust preferences | 2 | 1 | 0.8 | 3 | 0.5 | Structural | Next (needs a backend change) |
+| Q8 | Results | Only Previous/Next for long result lists | "Go to match N" | 2 | 2 | 0.6 | 2 | 1.2 | Quick win | **Done** (follow-up) |
+| Q9 | Search form | An unrun query is lost on restart | Persist the form draft | 2 | 1 | 0.6 | 1 | 1.2 | Quick win | **Done** (follow-up) |
+| Q10 | Presets | Stored in WebView storage, not in `preferences.json` with saved searches | Move to the Rust preferences | 2 | 1 | 0.8 | 3 | 0.5 | Structural | **Done** (follow-up, approved) |
 | Q11 | Results | Freshness ("ran 12 min ago") | — | 1 | 2 | 0.4 | 1 | 0.8 | — | **Not worth adding** (results are immutable; the stale notice covers query drift) |
 | Q12 | Shell | Density setting | — | 1 | 1 | 0.4 | 3 | 0.1 | — | **Not worth adding** |
 
@@ -108,14 +108,31 @@ Score = Impact × Frequency × Confidence ÷ Effort (heuristic).
 - Read-only server access is unchanged.
 - No raw CQP input was added; presets store the same structured, allow-listed filters as saved searches.
 - Passwords still go only to the keychain.
-- The draft and the presets live in the app's local storage on this computer. The draft may contain learner or speaker text, the same as a saved notebook file. The guide states where it lives.
+- The evidence draft lives in the app's local storage on this computer (presets moved to `preferences.json` in the follow-up below). The draft may contain learner or speaker text, the same as a saved notebook file. The guide states where it lives.
 
 **Tests:**
 - New scripts: `g1.cjs` (11 assertions), `g2.cjs` (8), `g3.cjs` (13).
 - `axe-new.cjs`: 10 interactive states (presets menu, save dialog with a taken name, rail menu, sign-in with a pending action, restored-notebook toast), dark and light, **0 violations**.
 - The full earlier suites and the sweep re-run after every group.
 
-**Outstanding:** Q8–Q10.
+**Outstanding:** none from the register; Q8–Q10 were delivered in the follow-up below.
+
+### Follow-up (approved): Q8–Q10
+
+- **Q8 Go to match.** A *Go to #* field beside the pager, shown when results span more than one page. It accepts digits only, marks out-of-range numbers invalid and disables *Go*, loads the page holding match N, selects that line and centres it. A number on the current page only moves the selection. Files: `screens/Search.jsx`, `styles/components.css`.
+- **Q9 Query form kept.** The form, run or not, is written to local storage 400 ms after the last change and restored on the next start. A blank form clears it, and a kept query for a corpus that is no longer listed is ignored. Results are not restored; the query has to be run again. File: `state/store.jsx`.
+- **Q10 Presets in `preferences.json`.**
+  - New typed field `filter_presets` (corpus → list). It is omitted from the file while empty, so older files are unchanged until a preset is saved, and older app versions keep it as an unknown key.
+  - One command, `set_filter_presets`. Every filter goes through the same `filter_constraint` validation as a search, with at most 50 presets per corpus and 1–6 filters per preset. Duplicate names are merged and the list is sorted.
+  - `save_preferences` keeps the stored presets, so a general save from a stale copy (e.g. a theme change) cannot drop them.
+  - Presets in the old local storage are copied in on the first start. The local copy is removed only when every corpus migrated cleanly.
+  - Files: `storage.rs`, `commands.rs`, `lib.rs`, `components/FilterPresets.jsx`, `state/store.jsx`, `dev/fixtures.js`.
+- **Tests:**
+  - `cargo test`: 52 pass, including a new validation test.
+  - `qol/g4.cjs`: 21 assertions, all pass. They cover migration both ways, backend writes, refusal of invalid presets, presets surviving a general save, the jump and its centring, input limits, form restore, unknown-corpus restore and 390 px overflow.
+  - `axe-goto.cjs`: results after a jump and the invalid state, dark and light, **0 violations**.
+  - All earlier suites re-run and pass. `g3.cjs` and `axe-new.cjs` were updated to read presets from the menu, not from local storage.
+- **Not verified:** the migration against a real installed build's WebView storage. It was tested only in the fixture browser.
 
 ## 6. Before / after
 
@@ -129,11 +146,14 @@ Score = Impact × Frequency × Confidence ÷ Effort (heuristic).
 | Reach page content by keyboard | 25 Tab stops | Tab, Enter (2) | Measured |
 | See nav labels at 1024 px | Not possible (tooltips only) | 1 click | Measured |
 | Closing the app with unsaved judgements | Lost | Restored on next start | Measured (reload) |
+| Read match 1,370 of 4,530 (25 per page) | Next × 54 | Type 1370, Enter (2) | Counted (page arithmetic; jump tested at 137) |
+| Reopen the app mid-query | Retype the query | Already there (0) | Measured (reload) |
 
 ![Rail menu at 1024 px](images/reaudit/rail-menu-1024.png)
 ![Sign-in that continues the refused search](images/reaudit/connect-and-continue.png)
 ![Filter presets in the two-column query card](images/reaudit/filter-presets.png)
 ![Unsaved notebook restored after reopening](images/reaudit/evidence-restored.png)
+![Go to match 137 of 4,530](images/reaudit/go-to-match.png)
 
 ## 7. Decision log and roadmap
 
@@ -142,10 +162,7 @@ Score = Impact × Frequency × Confidence ÷ Effort (heuristic).
   - The undo-over-confirm pattern for single, reversible removals. Bulk exports keep their confirmation.
   - The one-action toast as the shared vehicle for Undo, Discard and similar.
 - **Improve next:**
-  - Q8 *Go to match N*.
-  - Q9 form draft.
-  - Q10 presets in `preferences.json`, so they sit beside saved searches and survive a WebView reset.
   - A shared `Table` component, so sortable headers (P3) and region labels stop being repeated per screen.
   - Run the suites in CI against the fixture backend, so regressions like the Compare loop fail a build.
 - **Do not add:** result freshness labels, a density setting, a second confirmation layer.
-- **Needs approval:** none of the above is destructive. Q10 changes the preferences file format, which is backward compatible but touches the backend; I'd propose it before doing it.
+- **Needs approval:** nothing open. Q10 was approved and is delivered.

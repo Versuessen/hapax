@@ -665,3 +665,8 @@ th.num .th-sort { flex-direction: row-reverse; }
 @media (max-width: 560px) {
   .presets__menu { position: fixed; left: 16px; right: 16px; width: auto; top: auto; bottom: 72px; }
 }
+
+/* Go to match N (Search results toolbar) */
+.goto { display: inline-flex; align-items: center; gap: 4px; }
+.goto__input { width: 92px; }
+.goto__input[aria-invalid="true"] { border-color: var(--negative, #c0392b); }

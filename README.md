@@ -43,12 +43,14 @@ The name comes from *hapax legomenon*: a word that occurs only once in a corpus.
 - Search by written word, all forms of a word (lexeme), part-of-speech tag or any other
   annotation the corpus has.
 - **Filters** on any document or speaker metadata, combined with AND: only spoken texts, only
-  female speakers, only texts from 1990–1994, or all three at once.
+  female speakers, only texts from 1990–1994, or all three at once. Save a set as a named
+  **preset** per corpus; presets are kept in `preferences.json` beside saved searches.
 - **All forms of a word** — exact through the lemma index where a corpus has one, and through
   reviewed, rule-based suggestions (big → bigger, biggest) where it does not.
 - Phrases of up to nine words. Each word can follow directly or within *N* words, can be
   optional, and can list alternatives: `you` → `and` → `I|me`.
-- Sort the whole result on the server by the match, the word before or the word after.
+- Sort the whole result on the server by the match, the word before or the word after, and
+  jump straight to match *N* in a long list.
 - Guided search builds a query from a plain-language question, translating categories such
   as “noun” into each corpus's own tagset.
 

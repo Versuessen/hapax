@@ -1,27 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { Bookmark, ChevronDown, X } from "lucide-react";
 import { useApp } from "../state/store.jsx";
+import { invoke } from "../lib/ipc.js";
 import { describeFilter } from "../lib/filters.js";
 import { ICON } from "./ui.jsx";
 
 /**
  * Named sets of document filters, per corpus (metadata differs between
- * corpora), kept on this computer. Shared by every FilterEditor: Search,
- * Count by annotation and Compare.
+ * corpora), stored in preferences.json beside saved searches. Shared by every
+ * FilterEditor: Search, Count by annotation and Compare.
  */
-const KEY = "hapax.filterPresets";
-const readAll = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch { return {}; } };
-const writeAll = (all) => { try { localStorage.setItem(KEY, JSON.stringify(all)); } catch { /* storage blocked: presets unavailable */ } };
 const complete = (f) => !!describeFilter(f);
+const byName = (a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase());
 
 export function FilterPresets({ corpus, filters, onChange }) {
-  const { toast } = useApp();
-  const [all, setAll] = useState(readAll);
+  const { toast, prefs, setPrefs } = useApp();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const ref = useRef(null);
   const trigger = useRef(null);
-  const list = all[corpus] || [];
+  const list = prefs?.filter_presets?.[corpus] || [];
   const usable = filters.filter(complete);
   const taken = list.some((p) => p.name === name.trim());
 
@@ -33,17 +31,27 @@ export function FilterPresets({ corpus, filters, onChange }) {
     document.addEventListener("keydown", esc, true);
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc, true); };
   }, [open]);
-  useEffect(() => { if (open) setAll(readAll()); }, [open]); // another editor may have saved one
 
   if (!list.length && !usable.length) return null; // nothing to apply and nothing to save
 
-  const save = (next) => { const a = { ...readAll(), [corpus]: next }; if (!next.length) delete a[corpus]; writeAll(a); setAll(a); };
-  const add = () => {
+  // The backend validates every filter and answers with all presets; adopt that copy.
+  const save = async (next) => {
+    try {
+      const all = await invoke("set_filter_presets", { corpus, presets: next });
+      setPrefs((p) => (p ? { ...p, filter_presets: all } : p));
+      return true;
+    } catch (e) {
+      toast(`Could not save presets: ${e.message}`, "negative");
+      return false;
+    }
+  };
+  const add = async () => {
     const n = name.trim();
     if (!n || !usable.length) return;
-    save([...list.filter((p) => p.name !== n), { name: n, filters: usable }].sort((a, b) => a.name.localeCompare(b.name)));
-    setName("");
-    toast(`Saved filter preset “${n}” for ${corpus}.`, "positive", 4000);
+    if (await save([...list.filter((p) => p.name !== n), { name: n, filters: usable }].sort(byName))) {
+      setName("");
+      toast(`Saved filter preset “${n}” for ${corpus}.`, "positive", 4000);
+    }
   };
   const apply = (p) => {
     const before = filters;
@@ -52,9 +60,13 @@ export function FilterPresets({ corpus, filters, onChange }) {
     trigger.current?.focus();
     if (before.some(complete)) toast(`Applied “${p.name}”.`, "neutral", 7000, { label: "Undo", onClick: () => onChange(before) });
   };
-  const remove = (p) => {
-    save(list.filter((x) => x.name !== p.name));
-    toast(`Deleted preset “${p.name}”.`, "neutral", 7000, { label: "Undo", onClick: () => save([...readAll()[corpus] || [], p].sort((a, b) => a.name.localeCompare(b.name))) });
+  const remove = async (p) => {
+    if (await save(list.filter((x) => x.name !== p.name)))
+      toast(`Deleted preset “${p.name}”.`, "neutral", 7000, {
+        label: "Undo",
+        // Re-add to whatever the list is by then, not the list at deletion time.
+        onClick: () => invoke("get_preferences").then((cur) => save([...(cur.filter_presets?.[corpus] || []).filter((x) => x.name !== p.name), p].sort(byName))),
+      });
   };
 
   return (

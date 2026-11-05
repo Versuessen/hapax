@@ -46,6 +46,7 @@ pub fn run() {
             commands::get_corpus,
             commands::get_preferences,
             commands::save_preferences,
+            commands::set_filter_presets,
             commands::save_search,
             commands::delete_saved_search,
             // SSH lifecycle
