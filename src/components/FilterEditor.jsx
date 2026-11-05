@@ -4,6 +4,7 @@ import { useApp } from "../state/store.jsx";
 import { MAX_FILTERS } from "../lib/filters.js";
 import { thousands } from "../lib/format.js";
 import { ICON, Input, Select } from "./ui.jsx";
+import { FilterPresets } from "./FilterPresets.jsx";
 
 const MAX_LISTED_REGIONS = 10000; // same limit as the backend's metadata decoding
 const valueCache = new Map(); // `${corpus}/${attr}` -> [{ value, regions, tokens }]
@@ -78,11 +79,12 @@ export function FilterEditor({ corpus, filters, onChange, idPrefix = "flt", comp
           )}
         </div>
       ))}
-      <div className="row" style={{ gap: 10 }}>
+      <div className="row filter-footer" style={{ gap: 10 }}>
         <button type="button" className="btn btn--ghost" disabled={filters.length >= MAX_FILTERS}
           onClick={() => onChange([...filters, { attr: "", op: "is", value: "" }])}>
           <Plus {...ICON} size={14} /> Add filter
         </button>
+        <FilterPresets corpus={corpus} filters={filters} onChange={onChange} />
         {!compact && (
           <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>
             {filters.length > 1 ? "Matches must meet every filter." : "Limit matches to documents, speakers or periods."}

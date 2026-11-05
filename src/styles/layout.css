@@ -261,4 +261,6 @@
   .search-layout:not(.is-focus) .filter-row > :nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
   .search-layout:not(.is-focus) .search-layout__query .form-grid { grid-template-columns: 1fr; }
   .search-layout:not(.is-focus) .search-layout__query .card__actions { flex-wrap: nowrap; }
+  /* Long variety notes wrapped to four lines beside the buttons; two lines, full text on hover. */
+  .search-layout:not(.is-focus) .search-layout__query .card__sub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 }

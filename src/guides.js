@@ -28,7 +28,7 @@ export const GUIDES = {
     steps: [
       "Choose what to match in Find by: the written word, all forms of a word (lexeme), or an annotation such as a part-of-speech tag.",
       "Type the value. For a phrase, select Add word for each following word; I|me matches either form. All forms finds every inflection of the word (bigger, biggest).",
-      "To search only part of the corpus, select Add filter under Only in documents where — for example spoken texts, a speaker group or a range of years. Every filter must hold.",
+      "To search only part of the corpus, select Add filter under Only in documents where — for example spoken texts, a speaker group or a range of years. Every filter must hold. Presets saves a set of filters under a name for reuse here, in Count by annotation and in Compare.",
       "Select Search (Ctrl+Enter). The count covers the whole (filtered) corpus; the list shows one page at a time.",
     ],
     notes: [

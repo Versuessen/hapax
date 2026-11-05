@@ -143,7 +143,7 @@ export default function Search() {
         <div className="search-layout__query">
         <Card
           title="What do you want to find?"
-          sub={ci ? <span title={ci.description}>{compact(ci.tokens)} tokens · {ci.variety_note || varietyInfo(ci.variety).label}</span> : null}
+          sub={ci ? <span title={`${ci.variety_note || varietyInfo(ci.variety).label} — ${ci.description}`}>{compact(ci.tokens)} tokens · {ci.variety_note || varietyInfo(ci.variety).label}</span> : null}
           actions={
             <>
               <Button icon={BookmarkPlus} onClick={() => { setSaveName(`${query.corpus} — ${query.value}`); setSaveOpen(true); }} disabled={!query.value || !!error}>Save</Button>

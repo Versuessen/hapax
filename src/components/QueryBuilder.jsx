@@ -54,9 +54,12 @@ export function corpusOptions(info) {
 /** Live, debounced CQP preview + validation message from the Rust compiler. */
 export function useCqpPreview(query, enabled = true) {
   const [state, setState] = useState({ preview: null, error: null });
+  // Keyed on content, not identity: callers often build the query object inline,
+  // and an identity dependency re-ran this effect (and set state) on every render.
+  const key = JSON.stringify(query);
   useEffect(() => {
     if (!enabled || !query.value) {
-      setState({ preview: null, error: null });
+      setState((s) => (s.preview || s.error ? { preview: null, error: null } : s));
       return;
     }
     let live = true;
@@ -69,7 +72,7 @@ export function useCqpPreview(query, enabled = true) {
       live = false;
       clearTimeout(t);
     };
-  }, [query, enabled]);
+  }, [key, enabled]); // eslint-disable-line react-hooks/exhaustive-deps
   return state;
 }
 
