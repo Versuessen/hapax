@@ -162,7 +162,7 @@ export function Topbar({ corpusSwitcher = false }) {
   const { item, child } = findNav(screen);
   const Icon = item.icon;
   return (
-    <header className="topbar">
+    <header className={`topbar${corpusSwitcher ? " topbar--switch" : ""}`}>
       <h1 className="topbar__title">
         <Icon {...ICON} aria-hidden="true" />
         <span className={child ? "topbar__section" : undefined}>{item.label}</span>

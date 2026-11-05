@@ -71,6 +71,8 @@
 .card__title strong { color: var(--text-1); font-weight: 500; }
 .card__sub { font-family: var(--font-mono); font-size: var(--fs-mono); color: var(--text-3); margin-top: 2px; }
 .card__actions { margin-left: auto; display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
+/* A one-line header centres its actions on the title instead of hanging them below it. */
+.card__head:not(:has(.card__sub)) { align-items: center; }
 .card__foot { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding-top: var(--space-4); margin-top: var(--space-4); border-top: 1px solid var(--border-subtle); }
 
 /* ===== Stat (KPI) ======================================================= */
@@ -611,14 +613,14 @@ th.num .th-sort { flex-direction: row-reverse; }
 
 /* ===== Corpus table (Corpora → Contents & metadata) ===================== */
 .corpus-table .table td { white-space: nowrap; }
-.corpus-table .table td.corpus-table__desc { white-space: normal; min-width: 220px; line-height: 1.4; }
+.corpus-table .table td.corpus-table__desc, .corpus-table .table td.corpus-table__variety { white-space: normal; min-width: 160px; line-height: 1.4; }
 .corpus-table__name { all: unset; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; border-radius: var(--radius-sm); }
 .corpus-table__name:focus-visible { outline: 2px solid var(--focus, var(--accent-blue)); outline-offset: 3px; }
 .corpus-table__status { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); }
 .corpus-table__status .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-@container page (max-width: 1100px) { .corpus-table .corpus-table__desc { display: none; } .corpus-table th:nth-last-child(2), .corpus-table td:nth-last-child(2) { padding-right: var(--space-6); } }
+@container page (max-width: 1000px) { .corpus-table .corpus-table__desc { display: none; } .corpus-table th:nth-last-child(2), .corpus-table td:nth-last-child(2) { padding-right: var(--space-6); } }
 @container page (max-width: 820px) { .corpus-table .corpus-table__annotation, .corpus-table .corpus-table__meta { display: none; } }
-@container page (max-width: 560px) { .corpus-table .corpus-table__variety { display: none; } }
+@container page (max-width: 560px) { .corpus-table .corpus-table__variety { display: none; } .corpus-table .table td { white-space: normal; } }
 
 /* ===== Corpus switcher (top bar, when the sidebar is a rail) ============ */
 .corpus-switch { position: relative; min-width: 0; }

@@ -163,7 +163,7 @@ export default function Search() {
                 its metadata under Corpora → Contents &amp; metadata.
               </Notice>
             )}
-            <QueryBuilder query={query} onChange={setQuery} onSubmit={() => !error && query.value && execute(0)} />
+            <QueryBuilder query={query} onChange={setQuery} onSubmit={() => !error && query.value && execute(0)} errorId={error ? "query-error" : null} />
             <QueryPanel preview={preview} error={error} op="search"
               request={unqueryable ? null : { ...query, gap: Number(query.gap || 0), offset: 0, limit, context }} />
           </div>
@@ -183,7 +183,7 @@ export default function Search() {
           {stale && (
             <Notice tone="warn">
               The query has changed since these results were produced. Run the search again before analysing or exporting.{" "}
-              <Button variant="ghost" icon={RotateCcw} onClick={() => execute(0)}>Run again</Button>
+              <Button variant="ghost" icon={RotateCcw} onClick={() => execute(0)} disabled={!query.value || !!error || !!busy || unqueryable}>Run again</Button>
             </Notice>
           )}
           <Card flush style={{ ...(stale ? { opacity: 0.55 } : {}), scrollMarginTop: 72 }} ref={resultsRef}>

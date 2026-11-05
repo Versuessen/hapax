@@ -86,7 +86,7 @@ function useShortcuts() {
 }
 
 function Shell() {
-  const { info, screen } = useApp();
+  const { info, screen, query } = useApp();
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem("cqp.sidebar") === "collapsed";
@@ -95,6 +95,15 @@ function Shell() {
     }
   });
   const narrow = useNarrow();
+  // Below 1100 px the rail can open the full sidebar as an overlay (labels, sub-pages, corpora).
+  const [drawer, setDrawer] = useState(false);
+  useEffect(() => { setDrawer(false); }, [screen, query.corpus, narrow]);
+  useEffect(() => {
+    if (!drawer) return;
+    const esc = (e) => { if (e.key === "Escape") { setDrawer(false); document.querySelector(".brand__toggle")?.focus(); } };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [drawer]);
   useShortcuts();
   const toggle = () =>
     setCollapsed((c) => {
@@ -107,11 +116,13 @@ function Shell() {
     });
 
   return (
-    <div className="shell" data-collapsed={collapsed || narrow}>
-      <Sidebar collapsed={collapsed || narrow} narrow={narrow} onToggle={toggle} />
+    <div className="shell" data-collapsed={(collapsed || narrow) && !drawer} data-drawer={drawer || undefined}>
+      <a className="skip-link" href="#content" onClick={(e) => { e.preventDefault(); document.getElementById("content")?.focus(); }}>Skip to content</a>
+      <Sidebar collapsed={(collapsed || narrow) && !drawer} narrow={narrow} drawer={drawer} onToggle={narrow ? () => setDrawer((d) => !d) : toggle} />
+      {drawer && <div className="scrim" aria-hidden="true" onClick={() => setDrawer(false)} />}
       <main className="main">
         <Topbar corpusSwitcher={collapsed || narrow} />
-        <div className="content" id="content">
+        <div className="content" id="content" tabIndex={-1}>
           {info ? (
             <Suspense fallback={<div className="page"><Spinner /></div>}>
               <Screen id={screen} key={screen.split("/")[0]} />

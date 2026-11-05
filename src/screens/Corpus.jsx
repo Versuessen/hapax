@@ -54,7 +54,7 @@ const SORTS = {
   variety: { label: "Variety", key: null }, // null = the sidebar's grouped order
   tokens: { label: "Tokens", key: (c, ci) => ci.tokens || 0, num: true, desc: true },
   annotation: { label: "Annotation", key: (c) => corpusFamily(c)?.label || "" },
-  metadata: { label: "Metadata", key: (c, ci) => (ci.metadata || []).length, num: true, desc: true },
+  metadata: { label: "Metadata", title: "Number of document and speaker metadata attributes (text type, date, speaker…)", key: (c, ci) => (ci.metadata || []).length, num: true, desc: true },
   status: { label: "Status", key: (c, ci) => corpusStatus(ci)[0] },
 };
 
@@ -79,7 +79,7 @@ function CorpusTable({ selected, onSelect }) {
     const on = sort.by === id;
     return (
       <th className={s.num ? "num" : undefined} aria-sort={on ? (sort.desc ? "descending" : "ascending") : "none"} {...extra}>
-        <button type="button" className="th-sort" onClick={() => setSort(on ? { by: id, desc: !sort.desc } : { by: id, desc: !!s.desc })}>
+        <button type="button" className="th-sort" title={s.title} onClick={() => setSort(on ? { by: id, desc: !sort.desc } : { by: id, desc: !!s.desc })}>
           {s.label}
           <span aria-hidden="true" className="th-sort__arrow">{on ? (sort.desc ? "↓" : "↑") : ""}</span>
         </button>
@@ -116,7 +116,7 @@ function CorpusTable({ selected, onSelect }) {
                   <td className="muted corpus-table__variety">{ci.variety_note || varietyInfo(ci.variety).label}</td>
                   <td className="num">{ci.tokens ? compact(ci.tokens) : "—"}</td>
                   <td className="muted corpus-table__annotation">{corpusFamily(c)?.label}</td>
-                  <td className="num corpus-table__meta">{(ci.metadata || []).length || "—"}</td>
+                  <td className="num corpus-table__meta">{(ci.metadata || []).length ? `${(ci.metadata || []).length} fields` : "none"}</td>
                   <td title={why}><span className="corpus-table__status"><span className="dot" style={{ background: tone }} />{status}</span></td>
                   <td className="muted corpus-table__desc">{ci.description}</td>
                 </tr>

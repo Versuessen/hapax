@@ -37,14 +37,17 @@ async function saveText({ text, cqp, toast }) {
  * as commands for your own SSH session. Closed, the bar still shows the CQP
  * on one line; a validation error is always shown, never folded away.
  */
-export function QueryPanel({ preview, error, op, request, empty = "Type a value to see the generated CQP." }) {
+export function QueryPanel({ preview, error, op, request, errorId = "query-error", empty = "Type a value to see the generated CQP." }) {
   const { toast } = useApp();
   const [open, setOpen] = useState(() => readLS("hapax.query.open", readLS("hapax.term.open", "0")) === "1");
   const [view, setView] = useState(() => readLS("hapax.query.view", "cqp"));
   const canTerm = !!request && !!preview && !error;
-  const shown = canTerm ? view : "cqp";
+  // Closed, the bar shows (and copies) the CQP; the other views exist only when open.
+  const shown = open && canTerm ? view : "cqp";
   const term = useTerminalText({ op, request, style: shown === "shell" ? "shell" : "cqp", enabled: canTerm && shown !== "cqp" && open });
   const cqp = preview?.cqp_command || "";
+  // The peek drops the "CORPUS;" activation and "GUIQuery =" so a narrow bar shows the query itself.
+  const peek = cqp.replace(/^[^;]*;\s*/, "").replace(/^\w+\s*=\s*/, "").replace(/;\s*$/, "");
   const text = shown === "cqp" ? cqp : term.text;
   const toggle = () => setOpen((o) => { writeLS("hapax.query.open", o ? "0" : "1"); return !o; });
   const pick = (v) => { setView(v); writeLS("hapax.query.view", v); if (v !== "cqp") writeLS("cqp.termStyle", v === "shell" ? "shell" : "cqp"); };
@@ -53,14 +56,14 @@ export function QueryPanel({ preview, error, op, request, empty = "Type a value 
   return (
     <div className={`term query-panel${open ? "" : " is-closed"}`}>
       <div className="term__bar">
-        <button type="button" className="term__toggle" aria-expanded={open} aria-controls="query-panel-body" onClick={toggle}>
+        <button type="button" className="term__toggle" aria-expanded={open} aria-controls={open ? "query-panel-body" : undefined} onClick={toggle}>
           <ChevronRight {...ICON} size={14} className="term__chev" aria-hidden="true" />
           <Code2 {...ICON} size={14} aria-hidden="true" />
           <span>Query</span>
         </button>
         {!open && (
-          <code className="query-panel__peek" title={cqp || undefined} aria-live="polite">
-            {error ? "" : cqp || empty}
+          <code className="query-panel__peek" title={cqp || undefined}>
+            {error ? "" : peek || empty}
           </code>
         )}
         <span className="spacer" />
@@ -76,7 +79,7 @@ export function QueryPanel({ preview, error, op, request, empty = "Type a value 
           </button>
         )}
       </div>
-      {error && <pre className="term__pre term__pre--err" role="alert">{error}</pre>}
+      {error && <pre id={errorId} className="term__pre term__pre--err" role="alert">{error}</pre>}
       {open && !error && (
         <div id="query-panel-body">
           <pre className="term__pre" aria-live="polite">{shown === "cqp" ? (cqp || empty) : term.error || (term.text ?? "…")}</pre>

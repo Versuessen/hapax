@@ -30,6 +30,19 @@ ul, ol { margin: 0; padding: 0; }
 
 .mono, code, kbd, pre { font-family: var(--font-mono); }
 .num { font-variant-numeric: tabular-nums; }
+/* Secondary text (hints, units, counts). Was only defined inside tables, so most
+   uses rendered at full text colour. */
+.muted { color: var(--text-3); }
+
+.skip-link {
+  position: fixed; left: 12px; top: 12px; z-index: 100;
+  padding: 8px 14px; border-radius: var(--radius-md);
+  background: var(--surface-overlay); color: var(--text-1); border: 1px solid var(--border);
+  box-shadow: var(--shadow-pop); transform: translateY(-200%);
+}
+.skip-link:focus-visible { transform: none; }
+/* The skip target takes focus only to move the Tab sequence; it needs no ring. */
+#content:focus, #content:focus-visible { outline: none; }
 
 :focus { outline: none; }
 :focus-visible {

@@ -34,7 +34,7 @@ export function usePickCorpus() {
   };
 }
 
-export function Sidebar({ collapsed, narrow, onToggle }) {
+export function Sidebar({ collapsed, narrow, drawer = false, onToggle }) {
   const { screen, setScreen, setDialog, evidence, prefs, info, query } = useApp();
   const pickCorpus = usePickCorpus();
   const groupOf = (id) => NAV.find((n) => n.children?.some((c) => c.id === id))?.id;
@@ -58,14 +58,15 @@ export function Sidebar({ collapsed, narrow, onToggle }) {
         <div className="brand">
           <BrandMark />
           <span className="brand__name">Hapax</span>
-          {!narrow && (
+          {(
           <button
             type="button"
             className="btn btn--ghost btn--icon brand__toggle"
             onClick={onToggle}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-pressed={collapsed}
+            aria-label={narrow ? (drawer ? "Close menu" : "Open menu") : collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={narrow ? (drawer ? "Close menu (Esc)" : "Open menu: labels, pages and corpora") : collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-pressed={narrow ? undefined : collapsed}
+            aria-expanded={narrow ? drawer : undefined}
           >
             <PanelLeft {...ICON} />
           </button>

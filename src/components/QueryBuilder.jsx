@@ -77,7 +77,7 @@ export function useCqpPreview(query, enabled = true) {
  * Structured query editor. Only allow-listed attributes reach the Rust
  * compiler; nothing typed here is ever sent as raw CQP.
  */
-export function QueryBuilder({ query, onChange, onSubmit, compact = false, showCorpus = true, showFilters = true, idPrefix = "q" }) {
+export function QueryBuilder({ query, onChange, onSubmit, compact = false, showCorpus = true, showFilters = true, idPrefix = "q", errorId = null }) {
   const { info } = useApp();
   const [advanced, setAdvanced] = useState(!!query.regex);
   const [formsOpen, setFormsOpen] = useState(false);
@@ -115,7 +115,7 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
         </Field>
         <Field label="Value" htmlFor={`${idPrefix}-value`}>
           <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
-            <Input id={`${idPrefix}-value`} data-search-term value={query.value} placeholder={field === "pos" ? "e.g. NN1, JJ" : "e.g. jury  ·  I|me for either"} onChange={(e) => set({ value: e.target.value })} spellCheck={false} maxLength={120} style={{ flex: 1 }} />
+            <Input id={`${idPrefix}-value`} data-search-term aria-describedby={errorId || undefined} value={query.value} placeholder={field === "pos" ? "e.g. NN1, JJ" : "e.g. jury  ·  I|me for either"} onChange={(e) => set({ value: e.target.value })} spellCheck={false} maxLength={120} style={{ flex: 1 }} />
             {(query.field === "word" || query.field === "lexeme") && (
               <button type="button" className="btn btn--ghost" aria-expanded={formsOpen} onClick={() => setFormsOpen((o) => !o)} title="Find every form of this word"
                 disabled={!query.value.trim() || query.value.includes("|") || /\s/.test(query.value.trim())}>

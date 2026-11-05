@@ -84,7 +84,7 @@ export default function Overview() {
           label="Corpus server"
           figure={connection.connected ? "Connected" : "Not connected"}
           small
-          delta={connection.connected ? <><span className="pos">CQP {engine || ""}</span> · {connection.user}@{connection.host}</> : "Select to sign in with your university account"}
+          delta={connection.connected ? <><span className="pos">CQP {engine || ""}</span> · {connection.user}@{connection.host}</> : "Select to sign in"}
           onClick={() => setDialog("connect")}
         />
         <Stat
