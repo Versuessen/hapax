@@ -18,8 +18,10 @@ export async function exportReport(toast, log, label, promise) {
     const msg = typeof r === "string" ? `Saved ${r}` : `Saved ${thousands(r.rows)} rows${r.total != null ? ` of ${thousands(r.total)}` : ""} · ${r.path}${r.provenance_path ? " (+ provenance)" : ""}`;
     toast(msg, "positive", 7000);
     log?.({ label, detail: typeof r === "string" ? "saved" : `${thousands(r.rows)} rows` });
+    return true;
   } catch (e) {
     toast(e.message, "negative", 9000);
+    return false;
   }
 }
 
@@ -32,6 +34,7 @@ export default function Search() {
   const [focus, setFocus] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
+  const nameTaken = !!saveName.trim() && (prefs?.saved_searches || []).some((x) => x.name === saveName.trim());
   const [confirmAll, setConfirmAll] = useState(false);
   const { preview, error } = useCqpPreview(query);
   const keyRef = useRef(queryKey(query));
@@ -253,11 +256,17 @@ export default function Search() {
       </div>
 
       <Dialog open={saveOpen} onClose={() => setSaveOpen(false)} title="Save search definition" text="Saved locally in preferences.json. Results are not stored — the query runs again when restored."
-        footer={<><Button onClick={() => setSaveOpen(false)}>Cancel</Button><Button variant="primary" onClick={doSave} disabled={!saveName.trim()}>Save</Button></>}>
+        footer={<><Button onClick={() => setSaveOpen(false)}>Cancel</Button><Button variant="primary" onClick={doSave} disabled={!saveName.trim()}>{nameTaken ? "Replace" : "Save"}</Button></>}>
         <div className="dialog__body">
           <Field label="Name" htmlFor="save-name">
-            <Input id="save-name" value={saveName} onChange={(e) => setSaveName(e.target.value)} maxLength={200} onKeyDown={(e) => e.key === "Enter" && saveName.trim() && doSave()} />
+            <Input id="save-name" value={saveName} onChange={(e) => setSaveName(e.target.value)} maxLength={200} onKeyDown={(e) => e.key === "Enter" && saveName.trim() && doSave()}
+              aria-describedby={nameTaken ? "save-name-taken" : undefined} />
           </Field>
+          {nameTaken && (
+            <div id="save-name-taken" style={{ marginTop: 10 }}>
+              <Notice tone="warn">A saved search called “{saveName.trim()}” already exists. Saving replaces it; choose another name to keep both.</Notice>
+            </div>
+          )}
         </div>
       </Dialog>
 

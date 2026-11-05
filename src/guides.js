@@ -193,7 +193,7 @@ export const GUIDES = {
       "Select Save… to keep the notebook as a file, or Export… for a CSV of the judged lines.",
     ],
     notes: [
-      "The notebook exists only in this window until you save it.",
+      "Until you save it, the notebook is kept as a draft on this computer and restored when you reopen Hapax. Save… writes a JSON file you can share or archive.",
       "Every line keeps its corpus, token position and the query that found it.",
     ],
   },

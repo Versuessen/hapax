@@ -16,6 +16,7 @@ export const queryKey = (q) =>
   JSON.stringify([q.corpus, q.field, q.value, !!q.regex, !!q.ignore_case, q.second_field, q.second_value, Number(q.gap || 0), !!q.sentence_only, q.meta_attr, q.meta_value, (q.next || []).map((t) => [t.field, t.value, Number(t.gap || 0), !!t.optional]), (q.filters || []).map((f) => [f.attr, f.op, f.value, f.from ?? null, f.to ?? null])]);
 
 let toastSeq = 0;
+const DRAFT_KEY = "hapax.evidence.draft";
 
 export function AppProvider({ children }) {
   const [info, setInfo] = useState(null);
@@ -76,6 +77,16 @@ export function AppProvider({ children }) {
   const [analysis, setAnalysis] = useState({ frequencies: null, collocates: null, lexicon: null });
   const [evidence, setEvidence] = useState([]);
   const [evidenceDirty, setEvidenceDirty] = useState(false);
+  // Unsaved notebook draft, kept on this computer so closing the app does not lose judgements.
+  // Cleared once the notebook is saved to a file (evidenceDirty false) or emptied.
+  const draftReady = useRef(false);
+  useEffect(() => {
+    if (!draftReady.current) return;
+    try {
+      if (evidenceDirty && evidence.length) localStorage.setItem(DRAFT_KEY, JSON.stringify({ at: Date.now(), rows: evidence }));
+      else localStorage.removeItem(DRAFT_KEY);
+    } catch { /* storage full or blocked: the in-window notebook still works */ }
+  }, [evidence, evidenceDirty]);
   const [workflow, setWorkflow] = useState({ corpus: "BNC-BABY", steps: [], result: null, request: null, mode: "results" });
 
   const persistTheme = useCallback((t) => {
@@ -88,9 +99,10 @@ export function AppProvider({ children }) {
   }, []);
   const theme = useTheme(persistTheme);
 
-  const toast = useCallback((message, tone = "neutral", ttl = 5200) => {
+  /** `action` = { label, onClick } adds one button (e.g. Undo) that also dismisses the toast. */
+  const toast = useCallback((message, tone = "neutral", ttl = 5200, action = null) => {
     const id = ++toastSeq;
-    setToasts((t) => [...t.slice(-3), { id, message, tone }]);
+    setToasts((t) => [...t.slice(-3), { id, message, tone, action }]);
     if (ttl) setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), ttl);
     return id;
   }, []);
@@ -100,6 +112,23 @@ export function AppProvider({ children }) {
 
   // ---- bootstrap ----
   useEffect(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+      if (d?.rows?.length) {
+        setEvidence(d.rows);
+        setEvidenceDirty(true);
+        const when = new Date(d.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+        toast(`Restored an unsaved evidence notebook (${d.rows.length} examples, last changed ${when}).`, "neutral", 12000, {
+          label: "Discard",
+          onClick: () => {
+            setEvidence([]);
+            setEvidenceDirty(false);
+            toast("Discarded the restored notebook.", "neutral", 8000, { label: "Undo", onClick: () => { setEvidence(d.rows); setEvidenceDirty(true); } });
+          },
+        });
+      }
+    } catch { /* unreadable draft: ignore */ }
+    draftReady.current = true;
     (async () => {
       try {
         const [i, p, s] = await Promise.all([invoke("get_app_info"), invoke("get_preferences"), invoke("ssh_status")]);

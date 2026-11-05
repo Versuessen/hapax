@@ -253,6 +253,9 @@ export function Toasts() {
           <div key={t.id} className={`toast toast--${t.tone}`} role={t.tone === "negative" ? "alert" : "status"}>
             <I {...ICON} className="toast__icon" aria-hidden="true" />
             <div className="toast__msg">{t.message}</div>
+            {t.action && (
+              <button type="button" className="btn btn--ghost toast__action" onClick={() => { t.action.onClick(); dismissToast(t.id); }}>{t.action.label}</button>
+            )}
             <button type="button" className="btn btn--ghost btn--icon" style={{ width: 24, height: 24 }} onClick={() => dismissToast(t.id)} aria-label="Dismiss">
               <X {...ICON} size={14} />
             </button>

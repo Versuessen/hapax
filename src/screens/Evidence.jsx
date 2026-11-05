@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FileDown, FolderOpen, NotebookPen, Save, Trash2 } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke, openDialog, saveDialog, JSON_FILTERS } from "../lib/ipc.js";
-import { Button, Card, Dialog, EmptyState, Segmented, Stat, Notice } from "../components/ui.jsx";
+import { Button, Card, EmptyState, Segmented, Stat, Notice } from "../components/ui.jsx";
 import { exportReport } from "./Search.jsx";
 import { thousands } from "../lib/format.js";
 import { corpusColor } from "../nav.js";
@@ -16,7 +16,6 @@ export default function Evidence() {
   const [filter, setFilter] = useState("All");
   const [sel, setSel] = useState(null);
   const [note, setNote] = useState("");
-  const [confirmOpen, setConfirmOpen] = useState(null);
 
   const counts = useMemo(() => {
     const c = { Relevant: 0, Irrelevant: 0, Unsure: 0, Unreviewed: 0 };
@@ -47,6 +46,18 @@ export default function Evidence() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  /** Remove at once; the toast offers Undo (puts the example back where it was, with its judgement). */
+  const remove = (i) => {
+    const row = evidence[i];
+    setEvidence((rows) => rows.filter((_, j) => j !== i));
+    setEvidenceDirty(true);
+    setSel(null);
+    toast(`Removed example ${i + 1}.`, "neutral", 8000, {
+      label: "Undo",
+      onClick: () => { setEvidence((rows) => [...rows.slice(0, i), row, ...rows.slice(i)]); setEvidenceDirty(true); setSel(i); },
+    });
+  };
 
   const open = async () => {
     const p = await openDialog({ filters: JSON_FILTERS, title: "Open evidence notebook" });
@@ -79,7 +90,7 @@ export default function Evidence() {
         actions={
           <>
             <Button variant="ghost" icon={FolderOpen} onClick={open}>Open…</Button>
-            <Button variant="ghost" icon={Save} disabled={!evidence.length} onClick={async () => { const p = await saveDialog({ defaultPath: "corpus_evidence_notebook.json", filters: JSON_FILTERS }); if (!p) return; await exportReport(toast, log, "Saved evidence notebook", invoke("evidence_save", { path: p, rows: evidence })); setEvidenceDirty(false); }}>Save…</Button>
+            <Button variant="ghost" icon={Save} disabled={!evidence.length} onClick={async () => { const p = await saveDialog({ defaultPath: "corpus_evidence_notebook.json", filters: JSON_FILTERS }); if (!p) return; if (await exportReport(toast, log, "Saved evidence notebook", invoke("evidence_save", { path: p, rows: evidence }))) setEvidenceDirty(false); }}>Save…</Button>
             <Button icon={FileDown} disabled={!evidence.length} onClick={async () => { const p = await saveDialog({ defaultPath: "evidence_review.csv" }); if (p) exportReport(toast, log, "Exported evidence", invoke("evidence_export", { path: p, rows: evidence })); }}>Export…</Button>
           </>
         }>
@@ -117,7 +128,7 @@ export default function Evidence() {
 
       {cur && (
         <Card style={{ marginTop: 16 }} title="Review" sub={`${cur.corpus} · tokens ${thousands(cur.start)}–${thousands(cur.end)} · keys 1 relevant, 2 irrelevant, 3 unsure, 0 reset`}
-          actions={<Button variant="ghost" icon={Trash2} onClick={() => setConfirmOpen(sel)}>Remove</Button>}>
+          actions={<Button variant="ghost" icon={Trash2} onClick={() => remove(sel)}>Remove</Button>}>
           <div className="stack" style={{ gap: 14 }}>
             <p style={{ fontSize: 16, lineHeight: 1.7, color: "var(--text-2)" }}>{cur.left} <mark className="kwic__match">{cur.text}</mark> {cur.right}</p>
             <Segmented value={cur.decision} onChange={mark} label="Decision" options={DECISIONS.map((d) => [d, d])} />
@@ -130,11 +141,9 @@ export default function Evidence() {
       )}
 
       {evidenceDirty && evidence.length > 0 && (
-        <div style={{ marginTop: 16 }}><Notice tone="warn">This notebook has unsaved changes. Use <strong>Save…</strong> to keep it as a local JSON file.</Notice></div>
+        <div style={{ marginTop: 16 }}><Notice tone="warn">This notebook has unsaved changes. A draft is kept on this computer and restored if the app closes; use <strong>Save…</strong> to keep it as a JSON file you can share or archive.</Notice></div>
       )}
 
-      <Dialog open={confirmOpen != null} onClose={() => setConfirmOpen(null)} title="Remove this example?" text="It is removed from this unsaved notebook only."
-        footer={<><Button onClick={() => setConfirmOpen(null)}>Cancel</Button><Button variant="danger" onClick={() => { setEvidence((rows) => rows.filter((_, j) => j !== confirmOpen)); setEvidenceDirty(true); setSel(null); setConfirmOpen(null); }}>Remove</Button></>} />
     </div>
   );
 }
