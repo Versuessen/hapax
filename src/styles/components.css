@@ -93,13 +93,6 @@
 .stat__delta .warn { color: var(--warning); }
 .stat__body { position: relative; z-index: 1; min-width: 0; }
 
-  position: absolute;
-  width: 150px; height: 92px;
-  border-radius: 12px;
-  border: 1px solid var(--border-strong);
-  background: linear-gradient(150deg, color-mix(in srgb, var(--surface-1) 70%, #fff 10%), var(--surface-1) 55%, color-mix(in srgb, var(--surface-1) 85%, #000 30%));
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45), 0 1px 0 var(--highlight) inset;
-}
 
 /* ===== Form controls ==================================================== */
 .field { display: grid; gap: 6px; min-width: 0; }
@@ -640,3 +633,10 @@ th.num .th-sort { flex-direction: row-reverse; }
 .corpus-switch__group { display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); }
 .corpus-switch__menu [role="group"] + [role="group"] { margin-top: 4px; border-top: 1px solid var(--border-subtle); padding-top: 2px; }
 @media (max-width: 560px) { .corpus-switch__btn .corpus-switch__size { display: none; } }
+
+/* ===== Query panel (generated CQP + terminal commands, one disclosure) == */
+.query-panel .term__bar { flex-wrap: nowrap; }
+.query-panel.is-closed .term__bar .spacer { display: none; }
+.query-panel__peek { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-mono); line-height: 1.4; color: var(--text-2); background: none; padding: 0; }
+.query-panel:not(.is-closed) .term__bar { flex-wrap: wrap; }
+.query-panel__note { padding: 0 14px 10px; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); }

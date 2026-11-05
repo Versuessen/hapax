@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Code2, Plus, Sparkles, X } from "lucide-react";
+import { ChevronDown, Plus, Sparkles, X } from "lucide-react";
 import { clearFilters, filtersOf, withFilters } from "../lib/filters.js";
 import { WORD_CLASSES, hasIrregular, wordForms } from "../lib/inflect.js";
 import { FilterEditor } from "./FilterEditor.jsx";
@@ -248,17 +248,3 @@ function FormsHelper({ query, ci, onApply, onClose }) {
   );
 }
 
-export function CqpPreview({ preview, error, empty = "Type a value to see the generated CQP." }) {
-  return (
-    <div className="stack" style={{ gap: 8 }}>
-      <div className="row" style={{ color: "var(--text-3)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-mono)" }}>
-        <Code2 {...ICON} size={14} aria-hidden="true" /> Generated CQP · read-only
-      </div>
-      {error ? (
-        <div className="code" style={{ color: "var(--negative)", borderColor: "color-mix(in srgb, var(--negative) 30%, var(--border-subtle))" }} role="alert">{error}</div>
-      ) : (
-        <pre className="code" aria-live="polite">{preview ? preview.cqp_command : empty}</pre>
-      )}
-    </div>
-  );
-}

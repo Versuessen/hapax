@@ -34,7 +34,7 @@ export const GUIDES = {
     notes: [
       "Values match exactly. Use Ignore case for capitalisation and Regex (under Advanced) for patterns.",
       "In a filter, several values (picked from the list, or typed with |) mean any of them. A year range matches values that start with a year in that range, so “1985-1993” counts as 1985.",
-      "The CQP shown under the form is exactly what runs on the server. Copy the terminal version to repeat the search in your own SSH session.",
+      "Query, under the form, shows the generated CQP — exactly what runs on the server. Open it to switch to cqp> prompt or Shell script and copy the commands into your own SSH session.",
       "Per-million rates on this page divide by all tokens in the corpus, punctuation included — also when filters are set. Use Spread across texts or Compare corpora for rates of a filtered part.",
     ],
   },

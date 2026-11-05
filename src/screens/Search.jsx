@@ -6,8 +6,8 @@ import {
 import { useApp, queryKey } from "../state/store.jsx";
 import { invoke, saveDialog } from "../lib/ipc.js";
 import { Button, Card, Dialog, EmptyState, Field, ICON, Input, Notice, Select } from "../components/ui.jsx";
-import { QueryBuilder, CqpPreview, useCqpPreview } from "../components/QueryBuilder.jsx";
-import { TerminalBlock } from "../components/TerminalBlock.jsx";
+import { QueryBuilder, useCqpPreview } from "../components/QueryBuilder.jsx";
+import { QueryPanel } from "../components/TerminalBlock.jsx";
 import { Kwic } from "../components/Kwic.jsx";
 import { perMillion, rate, safeFileStem, seconds, thousands, compact } from "../lib/format.js";
 
@@ -164,10 +164,8 @@ export default function Search() {
               </Notice>
             )}
             <QueryBuilder query={query} onChange={setQuery} onSubmit={() => !error && query.value && execute(0)} />
-            <CqpPreview preview={preview} error={error} />
-            {preview && !error && !unqueryable && (
-              <TerminalBlock op="search" request={{ ...query, gap: Number(query.gap || 0), offset: 0, limit, context }} />
-            )}
+            <QueryPanel preview={preview} error={error} op="search"
+              request={unqueryable ? null : { ...query, gap: Number(query.gap || 0), offset: 0, limit, context }} />
           </div>
         </Card>
         </div>
