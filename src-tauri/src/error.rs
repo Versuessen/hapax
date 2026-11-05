@@ -28,7 +28,7 @@ pub enum AppError {
     #[error("{0}")]
     Auth(String),
 
-    #[error("Not connected. Use Connect in the SSH panel first.")]
+    #[error("Not connected. Sign in to the corpus server first.")]
     NotConnected,
 
     #[error("Another operation is already running")]

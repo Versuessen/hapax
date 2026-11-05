@@ -120,7 +120,7 @@ export default function Overview() {
                   </>
                 ) : (
                   <>
-                    <Button variant="primary" icon={Play} onClick={() => open(last.query, true)} disabled={!connection.connected}>Run again</Button>
+                    <Button variant="primary" icon={Play} onClick={() => open(last.query, true)}>{connection.connected ? "Run again" : "Connect and run"}</Button>
                     <Button onClick={() => open(last.query, false)}>Edit</Button>
                     <Button variant="ghost" onClick={() => go("find/search")}>New search</Button>
                   </>

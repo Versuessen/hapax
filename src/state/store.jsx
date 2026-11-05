@@ -160,6 +160,8 @@ export function AppProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [pending, setPending] = useState(null); // { label, retry } refused for lack of a connection
+  useEffect(() => { if (dialog !== "connect" && !connection.connected) setPending(null); }, [dialog]); // eslint-disable-line react-hooks/exhaustive-deps
   const busyRef = useRef(null);
   busyRef.current = busy;
 
@@ -168,7 +170,7 @@ export function AppProvider({ children }) {
    * Returns `undefined` on error (already reported) so callers stay simple.
    */
   const run = useCallback(
-    async (label, cmd, args, { quiet = false } = {}) => {
+    async (label, cmd, args, { quiet = false, retry = null } = {}) => {
       if (busyRef.current) {
         toast("Another operation is already running", "warning");
         return undefined;
@@ -185,7 +187,8 @@ export function AppProvider({ children }) {
       } catch (e) {
         if (e.kind === "cancelled") toast("Request stopped. The server may finish the job in the background.", "warning");
         else if (e.kind === "not_connected") {
-          toast(e.message, "warning");
+          // Remember what was refused so it can run as soon as the user has signed in.
+          setPending(retry ? { label, retry } : null);
           setDialog("connect");
         } else if (!quiet) toast(e.message, e.kind === "validation" ? "warning" : "negative", 9000);
         if (quiet) throw e;
@@ -235,6 +238,10 @@ export function AppProvider({ children }) {
         // save_preferences (e.g. a theme change) cannot write stale values back.
         invoke("get_preferences").then(setPrefs).catch(() => {});
         discover();
+        setPending((p) => {
+          if (p) setTimeout(p.retry, 0); // after this run() has released the busy guard
+          return null;
+        });
         return res;
       } catch (e) {
         throw e;
@@ -266,13 +273,13 @@ export function AppProvider({ children }) {
     () => ({
       info, prefs, setPrefs, connection, engine, busy, lastRun, toasts, toast, dismissToast,
       screen, setScreen, dialog, setDialog, hostKey, answerHostKey, theme,
-      run, cancel, connect, disconnect, corpusInfo, activity, log, recent, remember, corpusCheck, discover,
+      run, cancel, connect, disconnect, pending, setPending, corpusInfo, activity, log, recent, remember, corpusCheck, discover,
       consoleLog, consoleOpen, setConsoleOpen, clearConsole,
       query, setQuery, search, setSearch, analysis, setAnalysis,
       evidence, setEvidence, evidenceDirty, setEvidenceDirty, workflow, setWorkflow,
     }),
     [info, prefs, connection, engine, busy, lastRun, toasts, toast, dismissToast, screen, dialog, hostKey, answerHostKey, theme,
-     run, cancel, connect, disconnect, corpusInfo, activity, log, recent, remember, corpusCheck, discover, consoleLog, consoleOpen, setConsoleOpen, clearConsole, query, search, analysis, evidence, evidenceDirty, workflow]
+     run, cancel, connect, disconnect, corpusInfo, activity, log, recent, remember, corpusCheck, discover, consoleLog, consoleOpen, setConsoleOpen, clearConsole, query, search, analysis, evidence, evidenceDirty, workflow, pending]
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

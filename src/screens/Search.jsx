@@ -60,7 +60,7 @@ export default function Search() {
   const execute = async (offset = 0, opts = {}) => {
     const key = queryKey(query);
     const request = { ...query, gap: Number(query.gap || 0), offset, limit: opts.limit ?? limit, context: opts.context ?? context, sort: opts.sort ?? sort };
-    const out = await run(`Searching ${query.corpus}`, "run_search", { request });
+    const out = await run(`Searching ${query.corpus}`, "run_search", { request }, { retry: () => execute(offset, opts) });
     if (!out) return;
     if (keyRef.current !== key) {
       toast("The query changed while this search ran, so its result was discarded.", "warning");

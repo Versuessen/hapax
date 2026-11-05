@@ -141,7 +141,7 @@ export default function Corpus() {
   const max = Math.max(1, ...(values?.data?.groups || []).map((g) => g.tokens));
 
   const load = async () => {
-    const out = await run("Loading metadata values", "run_metadata", { request: { corpus: name, attribute: attr } });
+    const out = await run("Loading metadata values", "run_metadata", { request: { corpus: name, attribute: attr } }, { retry: () => load() });
     if (out) {
       setValues({ corpus: name, attr, data: out.data, elapsed: out.elapsed_seconds });
       log({ label: `Metadata ${name}.${attr}`, detail: `${out.data.groups.length} values · ${seconds(out.elapsed_seconds)}` });

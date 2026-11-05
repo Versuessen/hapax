@@ -219,7 +219,8 @@ export function Dialog({ open, onClose, title, text, children, footer, wide, cla
     if (!open) return;
     const prev = document.activeElement;
     const el = ref.current;
-    const first = el?.querySelector("[autofocus], input, select, textarea, button");
+    // data-autofocus lets a dialog pick its starting field (React's autoFocus leaves no attribute).
+    const first = el?.querySelector("[data-autofocus]") || el?.querySelector("[autofocus], input, select, textarea, button");
     first?.focus();
     const onKey = (e) => {
       if (e.key === "Escape") {

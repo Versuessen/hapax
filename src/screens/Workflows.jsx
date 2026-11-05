@@ -117,7 +117,7 @@ function Builder() {
       plan, mode: m, offset: m === "sample" ? 0 : offset, limit: m === "sample" ? sampleSize : pageSize, context: 4,
       seed: m === "sample" ? Number(seed) : null, group_field: groupField, group_position: groupPos,
     };
-    const out = await run(m === "group" ? "Grouping workflow results" : m === "sample" ? "Sampling across all matches" : "Running workflow", "run_workflow", { request });
+    const out = await run(m === "group" ? "Grouping workflow results" : m === "sample" ? "Sampling across all matches" : "Running workflow", "run_workflow", { request }, { retry: () => runIt(m, offset) });
     if (!out) return;
     setWorkflow((w) => (planKey(w) === key ? { ...w, result: { planKey: key, request, data: out.data, elapsed: out.elapsed_seconds, cached: out.cached } } : w));
     log({ label: `Workflow on ${wf.corpus} (${wf.steps.length} steps, ${m})`, detail: `${thousands(out.data.total)} spans · ${seconds(out.elapsed_seconds)}` });
@@ -325,7 +325,7 @@ function Compare() {
   const active = Object.fromEntries(corpora.map((c) => [c, (filters[c] || []).filter((f) => f.attr)]).filter(([, l]) => l.length));
   const request = { corpora, query: builderQuery, filters: active };
   const go = async () => {
-    const out = await run(`Comparing ${corpora.length} corpora`, "run_compare", { request });
+    const out = await run(`Comparing ${corpora.length} corpora`, "run_compare", { request }, { retry: () => go() });
     if (out) {
       setRes({ req: request, data: out.data, elapsed: out.elapsed_seconds });
       log({ label: `Compared “${[q.value, ...(q.next || []).map((t) => t.value)].join(" ")}” in ${corpora.join(", ")}`, detail: seconds(out.elapsed_seconds) });

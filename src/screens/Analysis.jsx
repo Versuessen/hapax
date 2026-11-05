@@ -17,8 +17,8 @@ import { FilterEditor } from "../components/FilterEditor.jsx";
 
 const GROUPABLE = ["word", "lexeme", "pos", "class", "lemma", "hw", "rel", "usas"];
 
-export async function runCollocates({ run, query, sample, key }) {
-  const out = await run(`Counting neighbouring words`, "run_collocates", { request: { ...query, sample_limit: sample } });
+export async function runCollocates({ run, query, sample, key, retry = null }) {
+  const out = await run(`Counting neighbouring words`, "run_collocates", { request: { ...query, sample_limit: sample } }, { retry });
   return out ? { key, query, data: out.data, elapsed: out.elapsed_seconds } : null;
 }
 
@@ -315,7 +315,7 @@ function Collocates() {
   if (!b.base) return <BaseNotice b={b} />;
 
   const go = async () => {
-    const r = await runCollocates({ run, query: b.base, sample, key: b.key });
+    const r = await runCollocates({ run, query: b.base, sample, key: b.key, retry: () => go() });
     if (!r) return;
     setAnalysis((a) => ({ ...a, collocates: r }));
     log({ label: `Nearby words of “${b.base.value}”`, detail: `${r.data.groups.length} words · ${seconds(r.elapsed)}` });
@@ -402,7 +402,7 @@ function Distribution() {
   if (!b.base) return <BaseNotice b={b} />;
 
   const go = async () => {
-    const out = await run(`Counting matches across ${attr}`, "run_distribution", { request: { ...b.base, attribute: attr } });
+    const out = await run(`Counting matches across ${attr}`, "run_distribution", { request: { ...b.base, attribute: attr } }, { retry: () => go() });
     if (!out) return;
     setAnalysis((a) => ({ ...a, distribution: { key: b.key, attr, data: out.data, elapsed: out.elapsed_seconds, corpus: b.base.corpus } }));
     log({ label: `Distribution of “${b.base.value}” across ${attr}`, detail: `${out.data.rows.length} values · ${seconds(out.elapsed_seconds)}` });

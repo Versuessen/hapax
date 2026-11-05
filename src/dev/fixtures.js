@@ -392,7 +392,7 @@ export function createFixtureBackend() {
     async invoke(cmd, args = {}) {
       await delay(cmd in remote ? LATENCY : 10);
       if (cmd in remote) {
-        if (!connected) throw { kind: "not_connected", message: "Not connected. Use Connect in the SSH panel first." };
+        if (!connected) throw { kind: "not_connected", message: "Not connected. Sign in to the corpus server first." };
         cancelled = false;
         const req = args.request || {};
         const entry = consolePush({

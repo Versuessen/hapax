@@ -7,7 +7,7 @@ import { Button, Checkbox, Dialog, Field, ICON, Input, Kbd, Notice } from "./ui.
 import { compact } from "../lib/format.js";
 
 export function ConnectDialog() {
-  const { dialog, setDialog, prefs, connection, connect, disconnect, engine, toast, busy } = useApp();
+  const { dialog, setDialog, prefs, connection, connect, disconnect, engine, toast, busy, pending } = useApp();
   const open = dialog === "connect";
   const [host, setHost] = useState("");
   const [user, setUser] = useState("");
@@ -65,6 +65,9 @@ export function ConnectDialog() {
     >
       <form onSubmit={submit}>
         <div className="dialog__body">
+          {!connection.connected && pending && (
+            <Notice tone="info">Sign in to continue: <strong>{pending.label}</strong> runs as soon as you are connected.</Notice>
+          )}
           {connection.connected && (
             <Notice tone="info">
               Connected as <strong>{connection.user}@{connection.host}</strong>{engine ? ` · CQP ${engine}` : ""}. Connecting again replaces this session.
@@ -82,7 +85,7 @@ export function ConnectDialog() {
             <Input id="c-user" value={user} onChange={(e) => setUser(e.target.value)} autoComplete="username" spellCheck={false} required />
           </Field>
           <Field label="Password" htmlFor="c-pw" hint={saved ? "A saved password exists for this account — leave blank to use it." : "Leave blank to use your ~/.ssh keys."}>
-            <Input id="c-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+            <Input id="c-pw" type="password" data-autofocus={(prefs?.host || connection.host) && (prefs?.user || connection.user) && !connection.connected ? "" : undefined} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
           </Field>
           <div className="row">
             <Checkbox label="Remember password on this computer" checked={remember} onChange={setRemember} disabled={!password} />
