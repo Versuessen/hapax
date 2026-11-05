@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronRight, Monitor, Moon, Square, SquareTerminal, Sun } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Monitor, Moon, Square, SquareTerminal, Sun } from "lucide-react";
 import { useApp } from "../state/store.jsx";
-import { findNav } from "../nav.js";
+import { corporaByVariety, corpusFamily, findNav, varietyInfo } from "../nav.js";
+import { Flag } from "./Flag.jsx";
+import { usePickCorpus } from "./Sidebar.jsx";
+import { compact } from "../lib/format.js";
 import { Button, ICON, Spinner } from "./ui.jsx";
 import { seconds } from "../lib/format.js";
 
@@ -48,6 +51,85 @@ function ThemeMenu() {
   );
 }
 
+/** Closes a popup on outside click or Escape (Escape returns focus to the trigger). */
+function useDismiss(open, setOpen, ref, triggerRef) {
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => !ref.current?.contains(e.target) && setOpen(false);
+    const esc = (e) => { if (e.key === "Escape") { setOpen(false); triggerRef?.current?.focus(); } };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/**
+ * Working-corpus switcher for the top bar. Shown when the sidebar is a rail
+ * (narrow windows, or collapsed by the user), where the corpus list is hidden.
+ */
+function CorpusSwitcher() {
+  const { info, query } = useApp();
+  const pick = usePickCorpus();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const trigger = useRef(null);
+  const menu = useRef(null);
+  useDismiss(open, setOpen, ref, trigger);
+  useEffect(() => {
+    if (!open) return;
+    const m = menu.current;
+    (m?.querySelector('[aria-checked="true"]:not(:disabled)') || m?.querySelector("button:not(:disabled)"))?.focus();
+  }, [open]);
+  const ci = info?.corpora?.[query.corpus];
+  if (!info || !ci) return null;
+  const onKey = (e) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const items = [...menu.current.querySelectorAll("button:not(:disabled)")];
+    const i = items.indexOf(document.activeElement);
+    const next = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : (i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
+  };
+  return (
+    <div ref={ref} className="corpus-switch">
+      <button ref={trigger} type="button" className="corpus-switch__btn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}
+        title={`Working corpus: ${query.corpus} — ${ci.description}`}>
+        <span className="sr-only">Working corpus: </span>
+        <Flag variety={ci.variety} note={ci.variety_note} />
+        <span className="corpus-switch__name">{query.corpus}</span>
+        {ci.tokens ? <span className="mono corpus-switch__size">{compact(ci.tokens)}</span> : null}
+        <ChevronDown {...ICON} size={14} aria-hidden="true" />
+      </button>
+      {open && (
+        <div ref={menu} className="menu corpus-switch__menu" role="menu" aria-label="Working corpus" onKeyDown={onKey}>
+          {corporaByVariety(info).map((g) => (
+            <div key={g.key} role="group" aria-label={g.info.label}>
+              <div className="corpus-switch__group" aria-hidden="true"><Flag variety={g.variety} size={14} />{g.info.label}</div>
+              {g.corpora.map((c) => {
+                const x = info.corpora[c];
+                const offline = x.available === false;
+                const broken = x.encoding === "<unsupported>";
+                return (
+                  <button key={c} type="button" role="menuitemradio" aria-checked={c === query.corpus} disabled={offline}
+                    title={`${x.description} · ${x.variety_note || varietyInfo(x.variety).label} · ${corpusFamily(c).label}`}
+                    onClick={() => { pick(c); setOpen(false); trigger.current?.focus(); }}>
+                    <span>{c}</span>
+                    <span className="mono corpus-switch__size">{offline ? "offline" : broken ? "n/a" : x.tokens ? compact(x.tokens) : "new"}</span>
+                    {c === query.corpus ? <Check {...ICON} size={14} className="menu__check" aria-hidden="true" /> : <span className="menu__check" style={{ width: 14 }} />}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BusyIndicator() {
   const { busy, cancel, lastRun } = useApp();
   const [now, setNow] = useState(performance.now());
@@ -74,7 +156,7 @@ function BusyIndicator() {
   );
 }
 
-export function Topbar() {
+export function Topbar({ corpusSwitcher = false }) {
   const { screen, connection, engine, setDialog, consoleOpen, setConsoleOpen, consoleLog } = useApp();
   const consoleErrors = consoleLog.filter((e) => e.status === "error").length;
   const { item, child } = findNav(screen);
@@ -91,6 +173,7 @@ export function Topbar() {
           </>
         )}
       </h1>
+      {corpusSwitcher && <CorpusSwitcher />}
       <div className="topbar__actions">
         <BusyIndicator />
         <button type="button" className="status-pill" onClick={() => setDialog("connect")} title="Connection settings">

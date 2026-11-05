@@ -7,7 +7,10 @@ import { BrandMark, ICON, Kbd } from "./ui.jsx";
 import { compact } from "../lib/format.js";
 import { modKey } from "../lib/platform.js";
 
-function useNarrow(query = "(max-width: 900px)") {
+/** Below this width the sidebar is always an icon rail (P4). */
+export const RAIL_QUERY = "(max-width: 1100px)";
+
+export function useNarrow(query = RAIL_QUERY) {
   const [m, setM] = useState(() => window.matchMedia?.(query).matches ?? false);
   useEffect(() => {
     const mq = window.matchMedia?.(query);
@@ -19,10 +22,21 @@ function useNarrow(query = "(max-width: 900px)") {
   return m;
 }
 
-export function Sidebar({ collapsed: userCollapsed, onToggle }) {
-  const narrow = useNarrow();
-  const collapsed = userCollapsed || narrow;
-  const { screen, setScreen, setDialog, evidence, prefs, info, query, setQuery, setSearch } = useApp();
+/** Choosing a working corpus: screens about a corpus stay put; elsewhere it means "search it". */
+export function usePickCorpus() {
+  const { screen, setScreen, query, setQuery, setSearch } = useApp();
+  return (name) => {
+    if (name !== query.corpus) {
+      setQuery({ ...query, corpus: name, meta_attr: "", meta_value: "", filters: [] });
+      setSearch(null);
+    }
+    if (!["find/search", "corpora/details", "corpora/tags", "home"].includes(screen)) setScreen("find/search");
+  };
+}
+
+export function Sidebar({ collapsed, narrow, onToggle }) {
+  const { screen, setScreen, setDialog, evidence, prefs, info, query } = useApp();
+  const pickCorpus = usePickCorpus();
   const groupOf = (id) => NAV.find((n) => n.children?.some((c) => c.id === id))?.id;
   const [open, setOpen] = useState(() => (groupOf(screen) ? { [groupOf(screen)]: true } : {}));
   // Last screen visited in each section, so returning to a section lands where you left it.
@@ -38,21 +52,13 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
 
   const meta = { evidence: evidence.length || null, saved: prefs?.saved_searches?.length || null };
 
-  const pickCorpus = (name) => {
-    if (name !== query.corpus) {
-      setQuery({ ...query, corpus: name, meta_attr: "", meta_value: "", filters: [] });
-      setSearch(null);
-    }
-    // Screens that are about a corpus stay put; elsewhere, picking a corpus means "search it".
-    if (!["find/search", "corpora/details", "corpora/tags", "home"].includes(screen)) setScreen("find/search");
-  };
-
   return (
     <aside className="sidebar" aria-label="Main navigation">
       <div className="sidebar__top">
         <div className="brand">
           <BrandMark />
           <span className="brand__name">Hapax</span>
+          {!narrow && (
           <button
             type="button"
             className="btn btn--ghost btn--icon brand__toggle"
@@ -63,6 +69,7 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
           >
             <PanelLeft {...ICON} />
           </button>
+          )}
         </div>
         <button type="button" className="search-trigger" onClick={() => setDialog("palette")} title={`Search (${modKey}+K)`}>
           <Search {...ICON} aria-hidden="true" />
@@ -123,6 +130,7 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
           </ul>
         </nav>
 
+        {!collapsed && (
         <nav className="nav-section nav-section--corpora" aria-label="Working corpus">
           <div className="nav-section__label"><span>Working corpus</span></div>
           <ul className="nav-list">
@@ -158,6 +166,7 @@ export function Sidebar({ collapsed: userCollapsed, onToggle }) {
               ])}
           </ul>
         </nav>
+        )}
       </div>
     </aside>
   );

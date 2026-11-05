@@ -626,3 +626,17 @@ th.num .th-sort { flex-direction: row-reverse; }
 @container page (max-width: 1100px) { .corpus-table .corpus-table__desc { display: none; } .corpus-table th:nth-last-child(2), .corpus-table td:nth-last-child(2) { padding-right: var(--space-6); } }
 @container page (max-width: 820px) { .corpus-table .corpus-table__annotation, .corpus-table .corpus-table__meta { display: none; } }
 @container page (max-width: 560px) { .corpus-table .corpus-table__variety { display: none; } }
+
+/* ===== Corpus switcher (top bar, when the sidebar is a rail) ============ */
+.corpus-switch { position: relative; min-width: 0; }
+.corpus-switch__btn { display: inline-flex; align-items: center; gap: 8px; height: 32px; max-width: 100%; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: transparent; color: var(--text-1); font-size: var(--fs-small); white-space: nowrap; }
+.corpus-switch__btn:hover, .corpus-switch__btn[aria-expanded="true"] { background: var(--surface-hover); }
+.corpus-switch__btn svg { color: var(--text-3); flex: none; }
+.corpus-switch__name { overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.corpus-switch__size { font-size: var(--fs-mono); color: var(--text-3); }
+.corpus-switch__menu { left: 0; top: 38px; min-width: 240px; max-height: min(70vh, 520px); overflow-y: auto; }
+.corpus-switch__menu .corpus-switch__size { margin-left: auto; }
+.corpus-switch__menu .menu__check { margin-left: 8px; flex: none; }
+.corpus-switch__group { display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); }
+.corpus-switch__menu [role="group"] + [role="group"] { margin-top: 4px; border-top: 1px solid var(--border-subtle); padding-top: 2px; }
+@media (max-width: 560px) { .corpus-switch__btn .corpus-switch__size { display: none; } }

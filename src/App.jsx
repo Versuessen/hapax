@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { AppProvider, useApp } from "./state/store.jsx";
-import { Sidebar } from "./components/Sidebar.jsx";
+import { Sidebar, useNarrow } from "./components/Sidebar.jsx";
 import { Topbar } from "./components/Topbar.jsx";
 import { CommandPalette, ConnectDialog, HostKeyDialog, Toasts } from "./components/Dialogs.jsx";
 import { Spinner } from "./components/ui.jsx";
@@ -94,6 +94,7 @@ function Shell() {
       return false;
     }
   });
+  const narrow = useNarrow();
   useShortcuts();
   const toggle = () =>
     setCollapsed((c) => {
@@ -106,10 +107,10 @@ function Shell() {
     });
 
   return (
-    <div className="shell" data-collapsed={collapsed}>
-      <Sidebar collapsed={collapsed} onToggle={toggle} />
+    <div className="shell" data-collapsed={collapsed || narrow}>
+      <Sidebar collapsed={collapsed || narrow} narrow={narrow} onToggle={toggle} />
       <main className="main">
-        <Topbar />
+        <Topbar corpusSwitcher={collapsed || narrow} />
         <div className="content" id="content">
           {info ? (
             <Suspense fallback={<div className="page"><Spinner /></div>}>
