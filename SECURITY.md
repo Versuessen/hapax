@@ -15,8 +15,10 @@ with the project's release key.
 
 ## Design summary
 
-- User input never reaches CQP unchecked: queries are structured, validated against an
+- User input never reaches CQP unchecked: form queries are structured, validated against an
   allow-list and the corpus inventory, and literal values are escaped (`src-tauri/src/query.rs`).
+  Typed CQP (*Write CQP*) is lexed and allow-listed so that it stays a single query expression:
+  no `;`, commands, comments, variables or redirection (`src-tauri/src/cqp.rs`).
 - The remote worker only runs CWB's read-only tools (`src-tauri/remote/worker.py`).
 - SSH host keys are checked against `~/.ssh/known_hosts`; changed keys are refused.
 - Passwords are stored only in the operating system keychain.

@@ -4,9 +4,9 @@ import { useApp } from "../state/store.jsx";
 import { corporaByVariety, corpusFamily, findNav, varietyInfo } from "../nav.js";
 import { Flag } from "./Flag.jsx";
 import { usePickCorpus } from "./Sidebar.jsx";
-import { compact } from "../lib/format.js";
 import { Button, ICON, Spinner } from "./ui.jsx";
 import { seconds } from "../lib/format.js";
+import { Size } from "./Units.jsx";
 
 function ThemeMenu() {
   const { theme } = useApp();
@@ -100,7 +100,7 @@ function CorpusSwitcher() {
         <span className="sr-only">Working corpus: </span>
         <Flag variety={ci.variety} note={ci.variety_note} />
         <span className="corpus-switch__name">{query.corpus}</span>
-        {ci.tokens ? <span className="mono corpus-switch__size">{compact(ci.tokens)}</span> : null}
+        {ci.tokens ? <span className="mono corpus-switch__size"><Size corpus={query.corpus} bare label={false} /></span> : null}
         <ChevronDown {...ICON} size={14} aria-hidden="true" />
       </button>
       {open && (
@@ -117,7 +117,7 @@ function CorpusSwitcher() {
                     title={`${x.description} · ${x.variety_note || varietyInfo(x.variety).label} · ${corpusFamily(c).label}`}
                     onClick={() => { pick(c); setOpen(false); trigger.current?.focus(); }}>
                     <span>{c}</span>
-                    <span className="mono corpus-switch__size">{offline ? "offline" : broken ? "n/a" : x.tokens ? compact(x.tokens) : "new"}</span>
+                    <span className="mono corpus-switch__size">{offline ? "offline" : broken ? "n/a" : x.tokens ? <Size corpus={c} bare label={false} /> : "new"}</span>
                     {c === query.corpus ? <Check {...ICON} size={14} className="menu__check" aria-hidden="true" /> : <span className="menu__check" style={{ width: 14 }} />}
                   </button>
                 );

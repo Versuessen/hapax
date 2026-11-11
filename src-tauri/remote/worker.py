@@ -79,7 +79,15 @@ try:
         if kind == "years":
             m = re.match(r"(\d{4})", value)
             return bool(m) and int(f["from"]) <= int(m.group(1)) <= int(f["to"])
-        hit = value in set(f.get("values", []))
+        hit = False
+        for want in f.get("values", []):
+            # "*" (or ".*") stands for any run of characters, as in the query.
+            if "*" in want:
+                parts = want.replace(".*", "*").split("*")
+                if re.fullmatch(".*".join(re.escape(p) for p in parts), value):
+                    hit = True; break
+            elif value == want:
+                hit = True; break
         return hit if kind == "is" else not hit
 
     def kept_regions(corpus, filters):
@@ -327,6 +335,31 @@ try:
         raw = call([BIN+"cwb-lexdecode", "-r", REG, "-f", "-P", req["field"], req["corpus"]], timeout=35)
         lines = [line for line in raw.splitlines() if line.strip()]
         print(json.dumps({"ok":True,"lines":lines[:2500],"truncated":len(lines)>2500},ensure_ascii=False))
+    elif op == "wordcount":
+        # Words = tokens with at least one letter or digit (punctuation left out),
+        # summed over the word lexicon with its frequencies. Streamed: the BNC
+        # lexicon is larger than the 8 MB reply limit of call().
+        corpus = req["corpus"]
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", corpus):
+            fail("Unsupported corpus id")
+        proc = subprocess.Popen([BIN+"cwb-lexdecode", "-r", REG, "-f", "-P", "word", corpus],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+                                text=True, encoding="utf-8", errors="replace")
+        words = tokens = 0
+        try:
+            for line in proc.stdout:
+                cols = line.lstrip().split("\t", 1)
+                if len(cols) != 2: continue
+                try: n = int(cols[0])
+                except ValueError: continue
+                tokens += n
+                if any(ch.isalnum() for ch in cols[1].rstrip("\n")): words += n
+            proc.wait(timeout=90)
+        except subprocess.TimeoutExpired:
+            proc.kill(); fail("Counting words timed out")
+        if proc.returncode:
+            fail((proc.stderr.read() or "cwb-lexdecode failed")[-800:])
+        print(json.dumps({"ok": True, "corpus": corpus, "words": words, "tokens": tokens}))
     elif op == "metadata":
         raw = call([BIN+"cwb-s-decode", "-r", REG, req["corpus"], "-S", req["attribute"]],timeout=35)
         result={}

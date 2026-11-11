@@ -17,6 +17,8 @@ import { BarCell, SERIES } from "../components/charts.jsx";
 import { exportReport } from "./Search.jsx";
 import { perMillion, rate, safeFileStem, seconds, thousands } from "../lib/format.js";
 import { corpusColor, orderedCorpora, isSearchable } from "../nav.js";
+import { hasQuery, queryLabel } from "../lib/query.js";
+import { Rate, Size, UnitLabel, useUnits } from "../components/Units.jsx";
 
 const planKey = (w) => JSON.stringify({ c: w.corpus, s: w.steps });
 const KIND_ICON = { search: SearchIcon, refine: Filter, combine: Combine };
@@ -29,7 +31,8 @@ export const DELIVER_EXAMPLE = {
 function describe(s, i) {
   if (s.kind === "search") {
     const q = s.query;
-    return `Find ${q.field} “${q.value}”${q.ignore_case ? " (any case)" : ""}${describeFollowers(q).map((d) => `, ${d}`).join("")}${q.sentence_only ? ", same sentence" : ""}${describeFilters(q).map((d) => `, where ${d}`).join("")}`;
+    if (q.manual) return `Find ${queryLabel(q, 80)}${describeFilters(q).map((d) => `, where ${d}`).join("")}`;
+    return `Find ${q.value ? `${q.field} “${q.value}”` : "any word"}${q.ignore_case ? " (any case)" : ""}${describeFollowers(q).map((d) => `, ${d}`).join("")}${q.sentence_only ? ", same sentence" : ""}${describeFilters(q).map((d) => `, where ${d}`).join("")}`;
   }
   if (s.kind === "refine")
     return `${s.mode === "exclude" ? "Remove" : "Keep only"} matches from step ${s.source} whose ${s.anchor === "matchend" ? "last" : "first"} token has ${s.field} = “${s.value}”${s.ignore_case ? " (any case)" : ""}`;
@@ -56,14 +59,14 @@ function StepEditor({ open, kind, corpus, count, initial, onClose, onSave }) {
     } else if (kind === "refine") onSave({ kind, ...r, source: Number(r.source) });
     else onSave({ kind, ...c, left: Number(c.left), right: Number(c.right) });
   };
-  const valid = kind === "search" ? !!q.value : kind === "refine" ? !!r.value && count >= 1 : count >= 2;
+  const valid = kind === "search" ? hasQuery(q) : kind === "refine" ? !!r.value && count >= 1 : count >= 2;
   const title = { search: "Search step", refine: "Keep or remove matches", combine: "Combine two results" }[kind];
   return (
     <Dialog open={open} onClose={onClose} wide title={title}
       text={kind === "search" ? "Finds matches in the workflow's corpus." : kind === "refine" ? "Filters an earlier step by an annotation on its first or last matched token." : "Set operations compare exact matched token spans — not documents or sentences."}
       footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" onClick={save} disabled={!valid}>{initial ? "Update step" : "Add step"}</Button></>}>
       <div className="dialog__body">
-        {kind === "search" && <QueryBuilder query={q} onChange={setQ} showCorpus={false} onSubmit={() => valid && save()} idPrefix="wf" />}
+        {kind === "search" && <QueryBuilder query={q} onChange={setQ} showCorpus={false} onSubmit={() => valid && save()} idPrefix="wf" allowCqp />}
         {kind === "refine" && (
           <div className="stack" style={{ gap: 14 }}>
             <div className="form-grid">
@@ -179,7 +182,7 @@ function Builder() {
           {!wf.steps.length && (
             <>
               <Button variant="ghost" icon={Lightbulb} onClick={() => update({ corpus: DELIVER_EXAMPLE.corpus, steps: DELIVER_EXAMPLE.steps })}>Example: adverbs after “deliver”</Button>
-              {search && <Button variant="ghost" icon={SearchIcon} onClick={() => { const { corpus, ...q } = search.request; update({ corpus, steps: [{ kind: "search", query: { field: q.field, value: q.value, regex: q.regex, ignore_case: q.ignore_case, second_field: q.second_field, second_value: q.second_value, gap: q.gap, next: q.next || [], sentence_only: q.sentence_only, meta_attr: q.meta_attr, meta_value: q.meta_value, filters: q.filters || [] } }] }); }}>Start from current search</Button>}
+              {search && <Button variant="ghost" icon={SearchIcon} onClick={() => { const { corpus, ...q } = search.request; update({ corpus, steps: [{ kind: "search", query: { field: q.field, value: q.value, regex: q.regex, ignore_case: q.ignore_case, second_field: q.second_field, second_value: q.second_value, gap: q.gap, next: q.next || [], sentence_only: q.sentence_only, meta_attr: q.meta_attr, meta_value: q.meta_value, filters: q.filters || [], manual: !!q.manual, cqp: q.cqp || "" } }] }); }}>Start from current search</Button>}
             </>
           )}
         </div>
@@ -246,7 +249,7 @@ function Builder() {
       {res && (
         <Card flush
           title={<><strong>{thousands(res.data.total)}</strong> matching spans</>}
-          sub={`${wf.corpus} · ${rate(perMillion(res.data.total, ci?.tokens))} per million indexed tokens · ${res.data.sampling_method}${res.data.seed != null ? ` (seed ${res.data.seed})` : ""} · ${seconds(res.elapsed)}`}
+          sub={<>{wf.corpus} · <Rate count={res.data.total} corpus={wf.corpus} /> <UnitLabel corpora={[wf.corpus]} /> · {res.data.sampling_method}{res.data.seed != null ? ` (seed ${res.data.seed})` : ""} · {seconds(res.elapsed)}</>}
           actions={
             <>
               <Button variant="ghost" icon={Lightbulb} onClick={async () => setExplain(await invoke("explain_workflow_result", { plan, total: res.data.total }).catch((e) => e.message))}>Explain</Button>
@@ -328,17 +331,19 @@ function Compare() {
     const out = await run(`Comparing ${corpora.length} corpora`, "run_compare", { request }, { retry: () => go() });
     if (out) {
       setRes({ req: request, data: out.data, elapsed: out.elapsed_seconds });
-      log({ label: `Compared “${[q.value, ...(q.next || []).map((t) => t.value)].join(" ")}” in ${corpora.join(", ")}`, detail: seconds(out.elapsed_seconds) });
+      log({ label: `Compared “${queryLabel(q)}” in ${corpora.join(", ")}`, detail: seconds(out.elapsed_seconds) });
     }
   };
   const rows = res?.data?.results || [];
   const ref = rows[0];
   const related = corpora.includes("BNC") && corpora.includes("BNC-BABY");
-  const max = Math.max(1e-9, ...rows.map((r) => r.per_million_tokens));
+  const units = useUnits(rows.map((r) => r.corpus));
+  const shown = rows.map((r) => units.per(r.total, r.corpus, r.tokens));
+  const max = Math.max(1e-9, ...shown.map((d) => d.value));
   return (
     <div className="stack">
       <Card title="Compare a search across corpora" sub="Runs the same search in each corpus — token-normalised rates, with log-likelihood against the first corpus"
-        actions={<Button variant="primary" icon={Scale} onClick={go} disabled={!!busy || !q.value || !!error || corpora.length < 2}>Compare</Button>}>
+        actions={<Button variant="primary" icon={Scale} onClick={go} disabled={!!busy || !hasQuery({ ...q, filters: [], meta_value: "" }) || !!error || corpora.length < 2}>Compare</Button>}>
         <div className="stack" style={{ gap: 14 }}>
           <div>
             <div className="field__label" id="cmp-corpora">Corpora <span className="muted">({corpora.length < 2 ? `select ${2 - corpora.length} more` : `${corpora.length} of 6`} · the first is the reference)</span></div>
@@ -379,7 +384,7 @@ function Compare() {
               </ul>
             )}
           </div>
-          <QueryBuilder query={builderQuery} onChange={(n) => setQ({ ...n, meta_attr: "", meta_value: "", filters: [] })} onSubmit={go} showCorpus={false} showFilters={false} idPrefix="cmp" />
+          <QueryBuilder query={builderQuery} onChange={(n) => setQ({ ...n, meta_attr: "", meta_value: "", filters: [] })} onSubmit={go} showCorpus={false} showFilters={false} idPrefix="cmp" allowCqp />
           {error && <Notice tone="warn">{error}</Notice>}
           <div className="row">
             {search?.request && <Button variant="ghost" icon={SearchIcon} onClick={() => {
@@ -400,15 +405,16 @@ function Compare() {
         </Notice>
       )}
       {res && (
-        <Card flush title={`${rows.length} corpora · reference ${ref?.corpus}`} sub={`${seconds(res.elapsed)} · LL (G²): * p<.05, ** p<.01, *** p<.001 (3.84 / 6.63 / 10.83). Treats tokens as independent; genre, period and tagging differences still limit inference`}
+        <Card flush title={`${rows.length} corpora · reference ${ref?.corpus}`} sub={`${seconds(res.elapsed)} · LL (G², on token counts): * p<.05, ** p<.01, *** p<.001 (3.84 / 6.63 / 10.83). Treats tokens as independent; genre, period and tagging differences still limit inference`}
           actions={<Button icon={FileDown} onClick={async () => { const p = await saveDialog({ defaultPath: "corpus_comparison.csv" }); if (p) exportReport(toast, log, "Exported comparison", invoke("export_comparison", { path: p, request: res.req, result: res.data })); }}>Export…</Button>}>
           <div className="table-scroll">
             <table className="table" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-              <thead><tr><th>Corpus</th><th className="num">Matches</th><th className="num" title="Tokens in the corpus, or in its filtered part">Tokens searched</th><th style={{ width: "26%" }}><span className="sr-only">Share</span></th><th className="num">Per million</th><th className="num">× ref</th><th className="num">LL vs ref</th></tr></thead>
+              <thead><tr><th>Corpus</th><th className="num">Matches</th><th className="num"><button type="button" className="unit-toggle" onClick={units.toggle} title={`${units.unit === "words" ? "Words" : "Tokens"} in the corpus, or in its filtered part. Click to switch to ${units.unit === "words" ? "tokens" : "words"}.`}>{units.unit === "words" ? "Words" : "Tokens"} searched</button></th><th style={{ width: "26%" }}><span className="sr-only">Share</span></th><th className="num"><UnitLabel corpora={rows.map((r) => r.corpus)} prefix="Per million" /></th><th className="num">× ref</th><th className="num">LL vs ref</th></tr></thead>
               <tbody>
                 {rows.map((r, i) => {
                   const ll = i && ref ? logLikelihood(r.total, r.tokens, ref.total, ref.tokens) : null;
-                  const ratio = i && ref?.per_million_tokens ? r.per_million_tokens / ref.per_million_tokens : null;
+                  const d = shown[i];
+                  const ratio = i && shown[0]?.value ? d.value / shown[0].value : null;
                   return (
                     <tr key={r.corpus}>
                       <td>
@@ -419,9 +425,9 @@ function Compare() {
                           </div>
                         )}
                       </td>
-                      <td className="num">{thousands(r.total)}</td><td className="num">{thousands(r.tokens)}</td>
-                      <td><BarCell value={r.per_million_tokens} max={max} color={corpusColor(r.corpus)} /></td>
-                      <td className="num">{r.per_million_tokens.toFixed(2)}</td>
+                      <td className="num">{thousands(r.total)}</td><td className="num">{d.approx ? "≈ " : ""}{thousands(d.n)}</td>
+                      <td><BarCell value={d.value} max={max} color={corpusColor(r.corpus)} /></td>
+                      <td className="num" title={d.approx ? "Estimated: the filtered part's word count is the corpus's share of words applied to its tokens" : undefined}>{d.approx ? "≈ " : ""}{d.value.toFixed(2)}</td>
                       <td className="num">{i === 0 ? "ref" : ratio != null ? `${ratio.toFixed(2)}×` : "—"}</td>
                       <td className="num">{i === 0 ? "—" : `${ll.toFixed(2)}${stars(ll)}`}</td>
                     </tr>

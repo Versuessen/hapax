@@ -10,7 +10,7 @@
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-informational)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A desktop app for searching and analysing CWB/CQP corpora over SSH, without writing CQP.
+A desktop app for searching and analysing CWB/CQP corpora over SSH — with or without writing CQP.
 
 Hapax connects to a corpus server with your own SSH login and runs the
 [IMS Open Corpus Workbench](https://cwb.sourceforge.io/) (CWB) for you. You describe what to
@@ -41,7 +41,11 @@ The name comes from *hapax legomenon*: a word that occurs only once in a corpus.
 
 **Find examples**
 - Search by written word, all forms of a word (lexeme), part-of-speech tag or any other
-  annotation the corpus has.
+  annotation the corpus has. Tag fields suggest codes as you type a tag or its meaning
+  (“verb” → `VV*`, `VVB`, …); `*` stands for any ending and `|` or `/` separates alternatives.
+- **Write CQP** yourself when the form is not enough, with suggestions for attributes, tags and
+  keywords. The query is checked before it runs, and your filters still apply.
+- Leave the value empty and add filters to list every word of those documents.
 - **Filters** on any document or speaker metadata, combined with AND: only spoken texts, only
   female speakers, only texts from 1990–1994, or all three at once. Save a set as a named
   **preset** per corpus; presets are kept in `preferences.json` beside saved searches.
@@ -51,6 +55,7 @@ The name comes from *hapax legomenon*: a word that occurs only once in a corpus.
   optional, and can list alternatives: `you` → `and` → `I|me`.
 - Sort the whole result on the server by the match, the word before or the word after, and
   jump straight to match *N* in a long list.
+- Rates **per million tokens or per million words**: select any rate or corpus size to switch.
 - Guided search builds a query from a plain-language question, translating categories such
   as “noun” into each corpus's own tagset.
 
@@ -168,9 +173,12 @@ count or a rate.
                                                      JSON
 ```
 
-- **No raw CQP from the user.** The interface sends a structured request. The Rust core checks
-  every field against the corpus inventory and an allow-list, escapes literal values, and only
-  then writes the CQP expression.
+- **Checked queries.** The form sends a structured request: the Rust core checks every field
+  against the corpus inventory and an allow-list, escapes literal values, and only then writes
+  the CQP expression. A query typed in *Write CQP* is lexed the way CQP reads it and must stay
+  one query expression: only the corpus's attributes, quoted values, query keywords and
+  operators are accepted; `;`, comments, variables, backslashes outside values and redirection
+  are refused, so it can never become a command.
 - **Read-only.** Each request starts a short-lived worker script over SSH, with the request as
   JSON on standard input. The worker runs CWB's read-only tools and nothing else; nothing is
   installed or stored on the server.

@@ -9,8 +9,12 @@ local files, the keychain and updates.
 1. The interface builds a **structured request** (for example a `QuerySpec`: corpus, field,
    value, following words, filters) and calls a Tauri command such as `run_search`.
 2. `query.rs` validates it against the live corpus inventory (`corpora.rs`) and allow-lists, then
-   compiles the CQP expression. Literal values are regex-escaped; `|` separates escaped
-   alternatives. Values may not contain `" \ ;` or control characters.
+   compiles the CQP expression. Literal values are regex-escaped except `*` (any characters);
+   `|` or `/` separates alternatives. Values may not contain `" \ ;` or control characters.
+   With `manual: true` the typed `cqp` text is checked by `cqp.rs` instead (lexed like CQP,
+   allow-listed names and operators, no `;`/`#`/`$`/redirection) and the filters are added as a
+   `::` constraint. An empty value with filters becomes `[_.attr="v" & …]`, which tests each
+   word against the filters so CQP never holds a match for every word of the corpus.
 3. `engine.rs` runs one request at a time. It opens an SSH channel and executes
    `python3 -c <worker.py>` with the request JSON on standard input.
 4. `remote/worker.py` sets `LD_LIBRARY_PATH` for CWB, runs `cqp -c -p -r <registry>` (or a CWB
@@ -24,6 +28,7 @@ local files, the keychain and updates.
 | Module | Responsibility |
 |---|---|
 | `query.rs` | Request types, validation, CQP compilation, worker payloads |
+| `cqp.rs` | Checks typed CQP (*Write CQP*) so it stays one query expression |
 | `workflow.rs` | Multi-step plans (search, refine, combine), plan files |
 | `corpora.rs` | Bundled verified inventory, live inventory, registry discovery |
 | `ssh.rs` | russh client, password / keyboard-interactive / key login, host-key checks |

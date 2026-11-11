@@ -63,6 +63,12 @@ pub struct QuerySpec {
     /// `meta_attr`/`meta_value` pair still works and is applied first.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub filters: Vec<MetaFilter>,
+    /// "Write CQP" mode: `cqp` is the query, checked by `cqp::check`; the
+    /// word fields, Ignore case, Within one sentence and Regex are not used.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub manual: bool,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub cqp: String,
 }
 
 /// One document/region filter on a structural attribute with values.
@@ -108,6 +114,12 @@ pub fn filter_spec(q: &QuerySpec) -> Vec<Value> {
 /// counts as 1985 and non-numeric values never match. (No `int()`: it fails on
 /// values like "1985-1993".)
 pub fn filter_constraint(f: &MetaFilter, corpus: &str) -> AppResult<String> {
+    filter_term(f, corpus, "match")
+}
+
+/// As `filter_constraint`, on `anchor`: `match` in a `::` constraint, or `_`
+/// (the current word) inside a token pattern, `[_.text_genre="…"]`.
+pub fn filter_term(f: &MetaFilter, corpus: &str, anchor: &str) -> AppResult<String> {
     let info = corpora::get(corpus)?;
     if !info.metadata.iter().any(|m| m == &f.attr) {
         return invalid(format!("{corpus} has no metadata attribute '{}'", f.attr));
@@ -123,13 +135,13 @@ pub fn filter_constraint(f: &MetaFilter, corpus: &str) -> AppResult<String> {
         }
         let mut out = Vec::new();
         for p in parts {
-            out.push(escape_regex_literal(&clean_meta_value(p)?));
+            out.push(glob_literal(&clean_meta_value(p)?));
         }
         Ok(if out.len() == 1 { out.remove(0) } else { format!("({})", out.join("|")) })
     };
     match f.op.as_str() {
-        "is" | "" => Ok(format!("match.{attr}=\"{}\"", values(&f.value)?)),
-        "not" => Ok(format!("match.{attr}!=\"{}\"", values(&f.value)?)),
+        "is" | "" => Ok(format!("{anchor}.{attr}=\"{}\"", values(&f.value)?)),
+        "not" => Ok(format!("{anchor}.{attr}!=\"{}\"", values(&f.value)?)),
         "years" => {
             let (from, to) = (f.from.unwrap_or(1000), f.to.unwrap_or(2100));
             if !(1000..=2100).contains(&from) || !(1000..=2100).contains(&to) || from > to {
@@ -139,7 +151,7 @@ pub fn filter_constraint(f: &MetaFilter, corpus: &str) -> AppResult<String> {
                 return invalid(format!("Filter on {attr}: a year range can span at most 400 years"));
             }
             let years: Vec<String> = (from..=to).map(|y| y.to_string()).collect();
-            Ok(format!("match.{attr}=\"({}).*\"", years.join("|")))
+            Ok(format!("{anchor}.{attr}=\"({}).*\"", years.join("|")))
         }
         other => invalid(format!("Unknown filter type '{other}'")),
     }
@@ -184,6 +196,8 @@ impl Default for QuerySpec {
             meta_value: String::new(),
             next: Vec::new(),
             filters: Vec::new(),
+            manual: false,
+            cqp: String::new(),
         }
     }
 }
@@ -227,21 +241,36 @@ pub fn clean_meta_value(value: &str) -> AppResult<String> {
     Ok(value.to_string())
 }
 
-/// A literal value where `|` separates alternatives: `I|me` -> `(I|me)`.
-/// Each alternative is escaped, so nothing else is ever a regex operator.
+/// A literal value in which `*` (or `.*`, as typed in regex habits) stands
+/// for any run of characters: `VV*` and `VV.*` -> `VV.*`. Everything else is
+/// escaped, so no other character is ever a regex operator.
+pub fn glob_literal(value: &str) -> String {
+    let v = value.replace(".*", "*");
+    let mut out = String::with_capacity(v.len() + 8);
+    for (i, part) in v.split('*').enumerate() {
+        if i > 0 && !out.ends_with(".*") {
+            out.push_str(".*");
+        }
+        out.push_str(&escape_regex_literal(part));
+    }
+    out
+}
+
+/// A literal value where `|` or `/` separates alternatives: `I|me` and
+/// `I/me` -> `(I|me)`. `*` is a wildcard (see `glob_literal`).
 pub fn literal_alternatives(value: &str) -> AppResult<String> {
     let value = clean_value(value.trim(), false)?;
-    if !value.contains('|') {
-        return Ok(escape_regex_literal(&value));
+    if !value.contains(['|', '/']) {
+        return Ok(glob_literal(&value));
     }
-    let parts: Vec<&str> = value.split('|').map(str::trim).collect();
+    let parts: Vec<&str> = value.split(['|', '/']).map(str::trim).collect();
     if parts.iter().any(|p| p.is_empty()) {
-        return invalid("Alternatives need a word on both sides of | (for example I|me)");
+        return invalid("Alternatives need a word on both sides of | or / (for example I|me or I/me)");
     }
     if parts.len() > MAX_ALTERNATIVES {
         return invalid(format!("At most {MAX_ALTERNATIVES} alternatives per word"));
     }
-    Ok(format!("({})", parts.iter().map(|p| escape_regex_literal(p)).collect::<Vec<_>>().join("|")))
+    Ok(format!("({})", parts.iter().map(|p| glob_literal(p)).collect::<Vec<_>>().join("|")))
 }
 
 /// All words after the first, in order: legacy `second_*` first, then `next`.
@@ -282,19 +311,98 @@ pub fn build_query_marked(q: &QuerySpec, target: Option<usize>) -> AppResult<Com
         None => return invalid("Unknown corpus"),
     };
     corpora::ensure_queryable(&q.corpus)?;
+    let active: Vec<&MetaFilter> = q.filters.iter().filter(|f| !f.attr.is_empty()).collect();
+    if active.len() > MAX_FILTERS {
+        return invalid(format!("At most {MAX_FILTERS} document filters"));
+    }
+    let legacy = {
+        let mv = q.meta_value.trim();
+        if !q.meta_attr.is_empty() && !mv.is_empty() {
+            if !info.metadata.iter().any(|m| m == &q.meta_attr) {
+                return invalid("Unknown corpus metadata field");
+            }
+            clean_meta_value(mv)?;
+            Some(MetaFilter { attr: q.meta_attr.clone(), op: "is".into(), value: mv.to_string(), ..Default::default() })
+        } else {
+            None
+        }
+    };
+    // Filters as conditions on `anchor`. The legacy pair keeps its exact v3 form.
+    let terms = |anchor: &str| -> AppResult<Vec<String>> {
+        let mut out = Vec::new();
+        if let Some(l) = &legacy {
+            out.push(format!("{anchor}.{}=\"{}\"", l.attr, l.value));
+        }
+        for f in &active {
+            out.push(filter_term(f, &q.corpus, anchor)?);
+        }
+        Ok(out)
+    };
+
+    if q.manual {
+        let c = crate::cqp::check(&q.corpus, info, &q.cqp)?;
+        let t = terms("_")?;
+        if t.is_empty() {
+            if c.all_tokens {
+                return invalid("[] alone matches every word of the corpus. Add a filter under “Only in documents where” to list every word of those documents.");
+            }
+            return Ok(CompiledQuery { corpus: q.corpus.clone(), expression: c.expression, field: "word".into() });
+        }
+        let expression = if c.all_tokens {
+            // Every word of the filtered documents: test the filters on each word,
+            // so CQP never holds a match for every word of the whole corpus.
+            format!("[{}]", t.join(" & "))
+        } else if c.has_cut {
+            return invalid("Your query uses cut, so the document filters can't be added after it. Remove cut, or write the conditions into your query with :: match.attribute=\"value\".");
+        } else {
+            let m = terms("match")?.join(" & ");
+            match c.constraint_at {
+                Some(at) => {
+                    let (head, rest) = c.expression.split_at(at);
+                    format!("{}:: ({}) & {m}", head, rest[2..].trim())
+                }
+                None => format!("{} :: {m}", c.expression),
+            }
+        };
+        return Ok(CompiledQuery { corpus: q.corpus.clone(), expression, field: "word".into() });
+    }
+
     let field = corpora::resolve_field(&q.corpus, &q.field)?;
-    let mut value = clean_value(&q.value, q.regex)?;
-    let flag = if q.ignore_case { " %c" } else { "" };
-    if q.ignore_case && !CASE_FOLDABLE.contains(&field.as_str()) {
+    let rest = followers(q);
+    let any_first = q.value.trim().is_empty();
+    if any_first && rest.is_empty() && legacy.is_none() && active.is_empty() {
+        return invalid("Type a value to search for — or leave it empty and add a filter under “Only in documents where” to list every word of those documents.");
+    }
+    let flag = if q.ignore_case && !any_first { " %c" } else { "" };
+    if q.ignore_case && !any_first && !CASE_FOLDABLE.contains(&field.as_str()) {
         return invalid("Case folding is supported for word, lemma and headword searches");
     }
-    if !q.regex {
-        value = literal_alternatives(&value)?;
-    }
     let mark = |n: usize| if target == Some(n) { "@" } else { "" };
-    let mut expression = format!("{}[{field}=\"{value}\"{flag}]", mark(1));
 
-    let rest = followers(q);
+    // Nothing to match but filters: every word of the filtered documents,
+    // tested word by word (see the manual branch above).
+    if any_first && rest.is_empty() {
+        let t = terms("_")?;
+        let mut expression = format!("{}[{}]", mark(1), t.join(" & "));
+        if q.sentence_only {
+            if !info.structural.contains_key("s") {
+                return invalid("This corpus has no sentence structural attribute");
+            }
+            expression.push_str(" within s");
+        }
+        return Ok(CompiledQuery { corpus: q.corpus.clone(), expression, field });
+    }
+
+    let mut expression = if any_first {
+        format!("{}[]", mark(1))
+    } else {
+        let mut value = clean_value(&q.value, q.regex)?;
+        if !q.regex {
+            value = literal_alternatives(&value)?;
+        }
+        format!("{}[{field}=\"{value}\"{flag}]", mark(1))
+    };
+
     if let Some(t) = target {
         if t < 1 || t > rest.len() + 1 {
             return invalid(format!("The search has {} words; there is no word {t}", rest.len() + 1));
@@ -329,27 +437,23 @@ pub fn build_query_marked(q: &QuerySpec, target: Option<usize>) -> AppResult<Com
         }
         expression.push_str(" within s");
     }
-    let mut constraints = Vec::new();
-    let mv = q.meta_value.trim();
-    if !q.meta_attr.is_empty() && !mv.is_empty() {
-        if !info.metadata.iter().any(|m| m == &q.meta_attr) {
-            return invalid("Unknown corpus metadata field");
-        }
-        clean_meta_value(mv)?;
-        constraints.push(format!("match.{}=\"{}\"", q.meta_attr, mv));
-    }
-    let active: Vec<&MetaFilter> = q.filters.iter().filter(|f| !f.attr.is_empty()).collect();
-    if active.len() > MAX_FILTERS {
-        return invalid(format!("At most {MAX_FILTERS} document filters"));
-    }
-    for f in active {
-        constraints.push(filter_constraint(f, &q.corpus)?);
-    }
+    let constraints = terms("match")?;
     if !constraints.is_empty() {
         // Legacy single filter alone keeps its exact v3 form: ` :: match.a="v"`.
         expression.push_str(&format!(" :: {}", constraints.join(" & ")));
     }
     Ok(CompiledQuery { corpus: q.corpus.clone(), expression, field })
+}
+
+/// Short description of what a query looks for, for summaries and logs.
+pub fn describe(q: &QuerySpec) -> String {
+    if q.manual {
+        return format!("CQP {}", q.cqp.split_whitespace().collect::<Vec<_>>().join(" "));
+    }
+    if q.value.trim().is_empty() {
+        return if followers(q).is_empty() { "every word".into() } else { "any word".into() };
+    }
+    py_repr(&q.value)
 }
 
 // ---------------------------------------------------------------------------
@@ -947,5 +1051,78 @@ mod feature_tests {
         assert_eq!(c[1][3][0]["values"], json!(["A01", "A02"]));
         let dup = CompareRequest { corpora: vec!["BNC".into(), "BNC".into()], ..r };
         assert!(compare_payload(&dup).is_err());
+    }
+}
+
+#[cfg(test)]
+mod manual_and_wildcard_tests {
+    use super::*;
+
+    fn bnc() -> QuerySpec {
+        QuerySpec { corpus: "BNC".into(), ignore_case: false, ..Default::default() }
+    }
+    fn female() -> MetaFilter {
+        MetaFilter { attr: "text_author_sex".into(), op: "is".into(), value: "Female".into(), ..Default::default() }
+    }
+
+    #[test]
+    fn wildcards_and_slash_alternatives() {
+        let mut q = bnc();
+        q.field = "pos".into();
+        for (v, want) in [("VV*", "VV.*"), ("VV.*", "VV.*"), ("*ing", ".*ing"), ("a.b", "a\\.b"), ("NN1/NN2", "(NN1|NN2)"), ("I | me/my*", "(I|me|my.*)")] {
+            q.value = v.into();
+            assert_eq!(build_query(&q).unwrap().expression, format!("[pos=\"{want}\"]"), "{v}");
+        }
+        q.value = "I//me".into();
+        assert!(build_query(&q).is_err());
+        let f = MetaFilter { attr: "text_genre".into(), op: "is".into(), value: "W:ac*".into(), ..Default::default() };
+        assert_eq!(filter_constraint(&f, "BNC").unwrap(), "match.text_genre=\"W:ac.*\"");
+    }
+
+    #[test]
+    fn filters_alone_list_every_word_of_those_documents() {
+        let mut q = bnc();
+        assert!(build_query(&q).unwrap_err().to_string().contains("add a filter"));
+        q.filters = vec![female()];
+        assert_eq!(build_query(&q).unwrap().expression, "[_.text_author_sex=\"Female\"]");
+        q.next = vec![NextToken { value: "of".into(), ..Default::default() }];
+        assert_eq!(build_query(&q).unwrap().expression, "[] [word=\"of\"] :: match.text_author_sex=\"Female\"");
+    }
+
+    #[test]
+    fn manual_queries_merge_with_filters() {
+        let mut q = bnc();
+        q.manual = true;
+        q.value = "ignored".into();
+        q.cqp = "[pos=\"VV.*\"]\n[pos=\"AT0\"]".into();
+        assert_eq!(build_query(&q).unwrap().expression, "[pos=\"VV.*\"] [pos=\"AT0\"]");
+        q.filters = vec![female()];
+        assert_eq!(build_query(&q).unwrap().expression, "[pos=\"VV.*\"] [pos=\"AT0\"] :: match.text_author_sex=\"Female\"");
+        q.cqp = "a:[] b:[] :: a.word = b.word | a.pos = \"NN1\"".into();
+        assert_eq!(
+            build_query(&q).unwrap().expression,
+            "a:[] b:[] :: (a.word = b.word | a.pos = \"NN1\") & match.text_author_sex=\"Female\""
+        );
+        q.cqp = "[]".into();
+        assert_eq!(build_query(&q).unwrap().expression, "[_.text_author_sex=\"Female\"]");
+        q.filters.clear();
+        assert!(build_query(&q).is_err());
+        q.cqp = "[word=\"x\"] cut 5".into();
+        assert!(build_query(&q).is_ok());
+        q.filters = vec![female()];
+        assert!(build_query(&q).is_err());
+        q.cqp = "[word=\"x\"]; exit".into();
+        assert!(build_query(&q).is_err());
+    }
+
+    #[test]
+    fn manual_fields_round_trip_and_stay_out_of_old_files() {
+        let plain = serde_json::to_value(bnc()).unwrap();
+        assert!(plain.get("manual").is_none() && plain.get("cqp").is_none());
+        let mut q = bnc();
+        q.manual = true;
+        q.cqp = "[]".into();
+        let back: QuerySpec = serde_json::from_value(serde_json::to_value(&q).unwrap()).unwrap();
+        assert_eq!(back, q);
     }
 }

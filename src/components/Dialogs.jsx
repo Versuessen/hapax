@@ -5,6 +5,7 @@ import { invoke } from "../lib/ipc.js";
 import { NAV, CORPUS_ORDER, corpusColor, orderedCorpora } from "../nav.js";
 import { Button, Checkbox, Dialog, Field, ICON, Input, Kbd, Notice } from "./ui.jsx";
 import { compact } from "../lib/format.js";
+import { queryLabel } from "../lib/query.js";
 
 export function ConnectDialog() {
   const { dialog, setDialog, prefs, connection, connect, disconnect, engine, toast, busy, pending } = useApp();
@@ -168,7 +169,7 @@ export function CommandPalette() {
     (recent || []).slice(0, 10).forEach((r) =>
       out.push({
         group: "Recent searches", icon: History, meta: `${Number(r.total).toLocaleString()} hits`,
-        label: `${r.query.corpus} · ${[r.query.value, ...(r.query.next || []).map((t) => t.value), r.query.second_value].filter(Boolean).join(" ")}`,
+        label: `${r.query.corpus} · ${r.query.manual ? queryLabel(r.query) : [r.query.value, ...(r.query.next || []).map((t) => t.value), r.query.second_value].filter(Boolean).join(" ") || queryLabel(r.query)}`,
         run: () => { setQuery(r.query); setSearch(null); setScreen("search"); setTimeout(() => window.dispatchEvent(new Event("cqp:search")), 50); },
       })
     );

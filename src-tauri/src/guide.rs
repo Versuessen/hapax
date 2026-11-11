@@ -233,6 +233,12 @@ pub fn glossary_rows(corpus: &str) -> Vec<GlossaryRow> {
             push("Class", code, e.short, e.note);
         }
     }
+    if corpora::get(corpus).is_ok_and(|c| c.positional.iter().any(|p| p == "usas")) {
+        for code in b.usas.keys() {
+            let e = explain(corpus, "usas", code);
+            push("USAS", code, e.short, e.note);
+        }
+    }
     if corpus == "EFCAM" {
         for code in b.rel.keys() {
             let e = explain(corpus, "rel", code);

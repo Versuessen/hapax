@@ -93,7 +93,7 @@ pub fn compile_workflow(plan: &Value) -> AppResult<CompiledWorkflow> {
         match step.get("kind").and_then(Value::as_str) {
             Some("search") => {
                 let request = query_from(step.get("query"), corpus)?;
-                if bnc && request.field == "lemma" && !request.value.contains('_') && !request.regex {
+                if bnc && !request.manual && request.field == "lemma" && !request.value.contains('_') && !request.regex {
                     return invalid(format!(
                         "In {corpus}, lemma values include a grammatical suffix (for example go_VERB). \
                          For {} and its inflected forms, select 'lexeme' instead. Use 'lemma' only when \
@@ -108,7 +108,11 @@ pub fn compile_workflow(plan: &Value) -> AppResult<CompiledWorkflow> {
                 } else {
                     ""
                 };
-                summaries.push(format!("{idx}. Find {} = {}{extra}", compiled.field, py_repr(&request.value)));
+                if request.manual {
+                    summaries.push(format!("{idx}. Find {}", crate::query::describe(&request)));
+                } else {
+                    summaries.push(format!("{idx}. Find {} = {}{extra}", compiled.field, crate::query::describe(&request)));
+                }
                 let mut q = serde_json::to_value(&request)?;
                 if let Some(o) = q.as_object_mut() { o.remove("corpus"); }
                 normalized.push(json!({ "kind": "search", "query": q }));
@@ -280,14 +284,18 @@ pub fn explain_workflow(plan: &Value, total: u64, corpus_tokens: u64) -> AppResu
 /// `interpretation` — plain-language summary after a single search.
 pub fn interpretation(query: &QuerySpec, total: u64, tokens: u64) -> String {
     let rate = if tokens > 0 { total as f64 * 1_000_000.0 / tokens as f64 } else { 0.0 };
-    let hint = match query.field.as_str() {
+    let hint = if query.manual {
+        "This counts matches of your own CQP query exactly as written; check a sample of lines before reporting the figure."
+    } else if query.value.trim().is_empty() && crate::query::followers(query).is_empty() {
+        "This lists every word (token, punctuation included) in the documents that pass the filters."
+    } else { match query.field.as_str() {
         "word" => "This counts written forms, not necessarily every grammatical form of the word.",
         "lexeme" => "This combines the indexed forms of a headword/lemma; inspect context for multiple senses.",
         "pos" => "These are annotation labels produced by the corpus tagger, not manual judgments.",
         "class" => "These are the corpus's own broad word classes, which may differ from textbook categories.",
         _ => "This matches indexed annotations, whose conventions vary by corpus.",
-    };
-    let caveat = if !query.meta_attr.is_empty() && !query.meta_value.is_empty() {
+    } };
+    let caveat = if (!query.meta_attr.is_empty() && !query.meta_value.is_empty()) || query.filters.iter().any(|f| !f.attr.is_empty()) {
         "A metadata filter is active: the rate below uses the entire corpus denominator and must NOT be \
          treated as a within-group frequency. Load metadata sizes under Corpora > Contents & metadata (or use Spread across texts) before making \
          subgroup comparisons. "
@@ -295,12 +303,12 @@ pub fn interpretation(query: &QuerySpec, total: u64, tokens: u64) -> String {
         ""
     };
     format!(
-        "Found {} matches for {} by {}. Corpus-wide reference rate: {} matches per million indexed tokens. \
+        "Found {} matches for {}{}. Corpus-wide reference rate: {} matches per million indexed tokens. \
          {caveat}{hint} Next: read several examples, then use Count by annotation to see how they are used, or \
          Combine searches to narrow them down.",
         thousands(total),
-        py_repr(&query.value),
-        query.field,
+        crate::query::describe(query),
+        if query.manual || query.value.trim().is_empty() { String::new() } else { format!(" by {}", query.field) },
         thousands_2dp(rate)
     )
 }

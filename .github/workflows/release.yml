@@ -124,11 +124,17 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/download-artifact@v7
         with: { path: dist-release, merge-multiple: true }
-      - name: Release notes from commits since the previous release
+      - name: Release notes (plain-language release-notes.md, else commit subjects)
         run: |
           prev=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
           range=${prev:+$prev..}HEAD
-          git log --no-merges --pretty='- %s' $range | head -60 > notes.md
+          # release-notes.md is written for people using the app (see docs/releasing.md).
+          # It is used when this release changed it; otherwise commit subjects stand in.
+          if [ -s release-notes.md ] && { [ -z "$prev" ] || ! git diff --quiet "$prev" HEAD -- release-notes.md; }; then
+            cp release-notes.md notes.md
+          else
+            git log --no-merges --pretty='- %s' $range | head -60 > notes.md
+          fi
           [ -s notes.md ] || echo "- Maintenance build" > notes.md
           cat notes.md
       - name: Updater manifest

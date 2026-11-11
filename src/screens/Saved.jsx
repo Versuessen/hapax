@@ -7,6 +7,7 @@ import { useApp } from "../state/store.jsx";
 import { invoke } from "../lib/ipc.js";
 import { Button, Card, Chip, Dialog, EmptyState } from "../components/ui.jsx";
 import { corpusColor } from "../nav.js";
+import { queryLabel } from "../lib/query.js";
 
 export default function Saved() {
   const { prefs, setPrefs, setQuery, setSearch, setScreen, toast, recent } = useApp();
@@ -33,7 +34,7 @@ export default function Saved() {
                     <div style={{ fontWeight: 500 }}>{s.name}</div>
                     <div className="row" style={{ gap: 6, marginTop: 6 }}>
                       <Chip>{q.corpus}</Chip>
-                      <Chip>{q.field || "word"} = {q.value}{q.ignore_case ? " %c" : ""}</Chip>
+                      <Chip>{queryLabel(q)}</Chip>
                       {describeFollowers(q).map((d) => <Chip key={d}>{d}</Chip>)}
                       {describeFilters(q).map((d) => <Chip key={d} tone="warn">{d}</Chip>)}
                     </div>
@@ -64,7 +65,7 @@ export default function Saved() {
                   <div style={{ minWidth: 0 }}>
                     <div className="row" style={{ gap: 6 }}>
                       <Chip>{q.corpus}</Chip>
-                      <Chip>{q.field || "word"} = {q.value}{q.ignore_case ? " %c" : ""}</Chip>
+                      <Chip>{queryLabel(q)}</Chip>
                       {describeFollowers(q).map((d) => <Chip key={d}>{d}</Chip>)}
                       {describeFilters(q).map((d) => <Chip key={d} tone="warn">{d}</Chip>)}
                     </div>

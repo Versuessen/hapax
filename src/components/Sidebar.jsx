@@ -4,8 +4,8 @@ import { useApp } from "../state/store.jsx";
 import { NAV, corpusColor, corpusFamily, corporaByVariety, varietyInfo } from "../nav.js";
 import { Flag } from "./Flag.jsx";
 import { BrandMark, ICON, Kbd } from "./ui.jsx";
-import { compact } from "../lib/format.js";
 import { modKey } from "../lib/platform.js";
+import { Size } from "./Units.jsx";
 
 /** Below this width the sidebar is always an icon rail (P4). */
 export const RAIL_QUERY = "(max-width: 1100px)";
@@ -42,12 +42,12 @@ export function Sidebar({ collapsed, narrow, drawer = false, onToggle }) {
   // Last screen visited in each section, so returning to a section lands where you left it.
   const lastIn = useRef({});
 
+  // Only the section holding the open page is unfolded; moving to a page in
+  // another section (or to a top-level page) folds the one you left.
   useEffect(() => {
     const g = groupOf(screen);
-    if (g) {
-      lastIn.current[g] = screen;
-      setOpen((o) => (o[g] ? o : { ...o, [g]: true }));
-    }
+    if (g) lastIn.current[g] = screen;
+    setOpen(g ? { [g]: true } : {});
   }, [screen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const meta = { evidence: evidence.length || null, saved: prefs?.saved_searches?.length || null };
@@ -159,7 +159,7 @@ export function Sidebar({ collapsed, narrow, drawer = false, onToggle }) {
                   >
                     <span className="dot" style={{ background: corpusColor(c), color: corpusColor(c) }} aria-hidden="true" />
                     <span className="nav-item__label">{c}</span>
-                    <span className="nav-item__meta">{offline ? "offline" : broken ? "n/a" : ci.tokens ? compact(ci.tokens) : "new"}</span>
+                    <span className="nav-item__meta">{offline ? "offline" : broken ? "n/a" : ci.tokens ? <Size corpus={c} bare label={false} /> : "new"}</span>
                   </button>
                 </li>
                 );

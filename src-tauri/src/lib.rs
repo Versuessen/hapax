@@ -15,6 +15,7 @@
 pub mod commands;
 pub mod console;
 pub mod corpora;
+pub mod cqp;
 pub mod engine;
 pub mod error;
 pub mod export;
@@ -69,6 +70,7 @@ pub fn run() {
             commands::run_collocates,
             commands::run_lexicon,
             commands::run_metadata,
+            commands::word_count,
             commands::run_distribution,
             commands::discover_corpora,
             commands::run_syntax,

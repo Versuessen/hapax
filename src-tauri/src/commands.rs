@@ -447,6 +447,26 @@ pub async fn run_lexicon(state: State<'_, AppState>, request: LexiconRequest) ->
     Ok(Timed { data, elapsed_seconds, cached })
 }
 
+#[derive(Serialize, serde::Deserialize)]
+pub struct WordCount {
+    pub corpus: String,
+    /// Tokens with at least one letter or digit.
+    pub words: u64,
+    /// All tokens, as summed from the same lexicon (a cross-check on the inventory).
+    pub tokens: u64,
+}
+
+/// Words in a whole corpus (punctuation left out), for "per million words".
+#[tauri::command]
+pub async fn word_count(state: State<'_, AppState>, corpus: String) -> AppResult<Timed<WordCount>> {
+    corpora::ensure_queryable(&corpus)?;
+    let payload = json!({ "op": "wordcount", "corpus": corpus });
+    let (raw, elapsed_seconds, cached) = state.execute(&payload, true).await?;
+    let v = parse::worker_json(&raw)?;
+    let data = WordCount { corpus, words: v["words"].as_u64().unwrap_or(0), tokens: v["tokens"].as_u64().unwrap_or(0) };
+    Ok(Timed { data, elapsed_seconds, cached })
+}
+
 #[tauri::command]
 pub async fn run_metadata(state: State<'_, AppState>, request: MetadataRequest) -> AppResult<Timed<MetadataResult>> {
     let payload = metadata_payload(&request)?;

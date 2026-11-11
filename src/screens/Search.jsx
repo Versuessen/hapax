@@ -10,6 +10,8 @@ import { QueryBuilder, useCqpPreview } from "../components/QueryBuilder.jsx";
 import { QueryPanel } from "../components/TerminalBlock.jsx";
 import { Kwic } from "../components/Kwic.jsx";
 import { perMillion, rate, safeFileStem, seconds, thousands, compact } from "../lib/format.js";
+import { hasQuery, queryLabel } from "../lib/query.js";
+import { Rate, Size, UnitLabel } from "../components/Units.jsx";
 
 export async function exportReport(toast, log, label, promise) {
   try {
@@ -79,12 +81,12 @@ export default function Search() {
     setSearch({ key, request, data: out.data, elapsed: out.elapsed_seconds, cached: out.cached, interpretation });
     if (offset === 0) remember(query, out.data.total);
     pendingScroll.current = true; // scrolled once the results have rendered (effect below)
-    if (offset === 0) log({ label: `${query.corpus} · ${request.field} “${request.value}”`, detail: `${thousands(out.data.total)} in ${seconds(out.elapsed_seconds)}` });
+    if (offset === 0) log({ label: `${query.corpus} · ${queryLabel(query)}`, detail: `${thousands(out.data.total)} in ${seconds(out.elapsed_seconds)}` });
   };
 
   useEffect(() => {
-    const onSearch = () => !busy && query.value && !unqueryable && execute(0);
-    const onSave = () => query.value && setSaveOpen(true);
+    const onSearch = () => !busy && hasQuery(query) && !unqueryable && execute(0);
+    const onSave = () => hasQuery(query) && setSaveOpen(true);
     const onExport = () => data && !stale && exportPage();
     window.addEventListener("cqp:search", onSearch);
     window.addEventListener("cqp:save", onSave);
@@ -151,11 +153,11 @@ export default function Search() {
         <div className="search-layout__query">
         <Card
           title="What do you want to find?"
-          sub={ci ? <span title={`${ci.variety_note || varietyInfo(ci.variety).label} — ${ci.description}`}>{compact(ci.tokens)} tokens · {ci.variety_note || varietyInfo(ci.variety).label}</span> : null}
+          sub={ci ? <span title={`${ci.variety_note || varietyInfo(ci.variety).label} — ${ci.description}`}><Size corpus={query.corpus} /> · {ci.variety_note || varietyInfo(ci.variety).label}</span> : null}
           actions={
             <>
-              <Button icon={BookmarkPlus} onClick={() => { setSaveName(`${query.corpus} — ${query.value}`); setSaveOpen(true); }} disabled={!query.value || !!error}>Save</Button>
-              <Button variant="primary" icon={Play} onClick={() => execute(0)} disabled={!query.value || !!error || !!busy || unqueryable} title={unqueryable ? "This corpus cannot be queried on this server" : "Search (Ctrl+Enter)"}>Search</Button>
+              <Button icon={BookmarkPlus} onClick={() => { setSaveName(`${query.corpus} — ${queryLabel(query)}`); setSaveOpen(true); }} disabled={!hasQuery(query) || !!error}>Save</Button>
+              <Button variant="primary" icon={Play} onClick={() => execute(0)} disabled={!hasQuery(query) || !!error || !!busy || unqueryable} title={unqueryable ? "This corpus cannot be queried on this server" : "Search (Ctrl+Enter)"}>Search</Button>
             </>
           }
         >
@@ -174,7 +176,7 @@ export default function Search() {
                 its metadata under Corpora → Contents &amp; metadata.
               </Notice>
             )}
-            <QueryBuilder query={query} onChange={setQuery} onSubmit={() => !error && query.value && execute(0)} errorId={error ? "query-error" : null} />
+            <QueryBuilder query={query} onChange={setQuery} onSubmit={() => !error && hasQuery(query) && execute(0)} allowCqp errorId={error ? "query-error" : null} />
             <QueryPanel preview={preview} error={error} op="search"
               request={unqueryable ? null : { ...query, gap: Number(query.gap || 0), offset: 0, limit, context }} />
           </div>
@@ -186,7 +188,7 @@ export default function Search() {
       {!data ? (
         <Card>
           <EmptyState icon={TextSearch} title="No results yet">
-            Choose what to find and press <strong>Search</strong> (Ctrl+Enter). Literal values are matched exactly; switch on “Regex” under Advanced for patterns. Counts refer to the whole corpus; the list shows one page at a time.
+            Choose what to find and press <strong>Search</strong> (Ctrl+Enter). Values are matched exactly; * stands for any ending (walk*, VV*), | or / separates alternatives. Leave the value empty and add a filter to list every word of those documents, or switch to Write CQP. Counts refer to the whole corpus; the list shows one page at a time.
           </EmptyState>
         </Card>
       ) : (
@@ -194,7 +196,7 @@ export default function Search() {
           {stale && (
             <Notice tone="warn">
               The query has changed since these results were produced. Run the search again before analysing or exporting.{" "}
-              <Button variant="ghost" icon={RotateCcw} onClick={() => execute(0)} disabled={!query.value || !!error || !!busy || unqueryable}>Run again</Button>
+              <Button variant="ghost" icon={RotateCcw} onClick={() => execute(0)} disabled={!hasQuery(query) || !!error || !!busy || unqueryable}>Run again</Button>
             </Notice>
           )}
           <Card flush style={{ ...(stale ? { opacity: 0.55 } : {}), scrollMarginTop: 72 }} ref={resultsRef}>
@@ -205,7 +207,7 @@ export default function Search() {
                   <span className="unit">{data.total === 1 ? "match" : "matches"}</span>
                 </div>
                 <div className="stat__delta" title="Client wall-clock time: SSH, remote CQP and parsing">
-                  <span className="pos">{rate(perMillion(data.total, ci?.tokens))}</span> per million tokens · {seconds(search.elapsed)} {search.cached ? "(cached page)" : "wall-clock"}
+                  <span className="pos"><Rate count={data.total} corpus={search.request.corpus} /></span> <UnitLabel corpora={[search.request.corpus]} /> · {seconds(search.elapsed)} {search.cached ? "(cached page)" : "wall-clock"}
                   {data.total > 0 && ` · showing ${thousands(from)}–${thousands(to)}`}
                 </div>
               </div>

@@ -216,6 +216,7 @@ pub fn summarize(p: &Value) -> String {
         "collocates" => format!("{} · {} · first {} matches", s(p, "corpus"), s(p, "expression"), n(p, "sample_limit")),
         "compare" => format!("compare {} in {}", s(p, "value"), p["corpora"].as_array().map(|a| a.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(" vs ")).unwrap_or_default()),
         "lexicon" => format!("{} · all values of {}", s(p, "corpus"), s(p, "field")),
+        "wordcount" => format!("{} · count words (tokens with a letter or digit)", s(p, "corpus")),
         "metadata" => format!("{} · values of {}", s(p, "corpus"), s(p, "attribute")),
         "distribution" => format!("{} · {} · across {}", s(p, "corpus"), s(p, "expression"), s(p, "attribute")),
         "registry" => "List corpora in the server registry".into(),
@@ -278,6 +279,7 @@ pub fn cqp_commands(p: &Value) -> String {
             out
         }
         "lexicon" => format!("{CWB_BIN}/cwb-lexdecode -r {CWB_REGISTRY} -f -P {} {}", s(p, "field"), s(p, "corpus")),
+        "wordcount" => format!("{CWB_BIN}/cwb-lexdecode -r {CWB_REGISTRY} -f -P word {}\n# frequencies summed; types without a letter or digit (punctuation) are left out", s(p, "corpus")),
         "metadata" => format!("{CWB_BIN}/cwb-s-decode -r {CWB_REGISTRY} {} -S {}", s(p, "corpus"), s(p, "attribute")),
         "registry" => format!("ls {CWB_REGISTRY}   # then each registry file is read; new corpora:\n{CWB_BIN}/cwb-describe-corpus -s -r {CWB_REGISTRY} <CORPUS>"),
         "distribution" => format!(

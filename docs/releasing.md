@@ -9,11 +9,29 @@ Releases are fully automated by [`.github/workflows/release.yml`](../.github/wor
    number, e.g. `1.0.57`. Every release is therefore newer than the one before.
 3. **build** — Linux (`.deb`, `.rpm`, `.AppImage`) on Ubuntu 22.04 and Windows (`-setup.exe`).
    The Tauri bundler signs each package with the updater key and writes a `.sig` next to it.
-4. **release** — release notes are the commit subjects since the previous release;
+4. **release** — release notes come from [`release-notes.md`](../release-notes.md) when the
+   release changed that file, otherwise from the commit subjects since the previous release;
    `scripts/make-latest-json.mjs` writes `latest.json`; everything is published as release
    `v<version>` and marked latest.
 
 Pushes that change only Markdown or `docs/` do not trigger a release.
+
+## Writing release notes
+
+The update notice in the app shows the release notes under **What changed**. They are read by
+people who use Hapax for corpus work, not by developers, so commit subjects are a poor fit.
+Before pushing a change people will notice, rewrite `release-notes.md` for that release:
+
+- Group items under `## ` headings named after the part of the app (Search, Analyse results,
+  Corpora, Sidebar…).
+- One `- ` item per change. Start with a short **bold** name of the change, then one or two
+  sentences: what you can now do or what behaves differently, and where to find it, using the
+  labels on screen.
+- Say what it means for the user's work, not how it was built. Leave out file names, internal
+  terms and refactoring. A fix says what used to go wrong.
+- Keep it short: the notice is a small panel. Five to eight items is plenty.
+
+The app renders `## ` headings, `- ` items, `**bold**` and `` `code` ``; other Markdown shows as plain text.
 
 ## How installed copies update
 

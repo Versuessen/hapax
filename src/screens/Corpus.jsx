@@ -10,6 +10,7 @@ import { ExplainPanel } from "./Analysis.jsx";
 import { corpusColor, corpusFamily, orderedCorpora, isSearchable, varietyInfo } from "../nav.js";
 import { Flag } from "../components/Flag.jsx";
 import { compact, seconds, thousands } from "../lib/format.js";
+import { Size, useUnits } from "../components/Units.jsx";
 
 /** Verified caveats from the handoff (docs/07 F4, F5). Labelled, not silently "fixed". */
 const CAVEATS = {
@@ -64,6 +65,7 @@ function CorpusTable({ selected, onSelect }) {
   const [sort, setSort] = useState({ by: "variety", desc: false });
   const check = useCorpusCheck();
   const base = orderedCorpora(info);
+  const units = useUnits(base.filter((c) => isSearchable(info.corpora[c])));
   const rows = (() => {
     const s = SORTS[sort.by];
     if (!s.key) return sort.desc ? [...base].reverse() : base;
@@ -80,7 +82,7 @@ function CorpusTable({ selected, onSelect }) {
     return (
       <th className={s.num ? "num" : undefined} aria-sort={on ? (sort.desc ? "descending" : "ascending") : "none"} {...extra}>
         <button type="button" className="th-sort" title={s.title} onClick={() => setSort(on ? { by: id, desc: !sort.desc } : { by: id, desc: !!s.desc })}>
-          {s.label}
+          {id === "tokens" && units.unit === "words" ? "Words" : s.label}
           <span aria-hidden="true" className="th-sort__arrow">{on ? (sort.desc ? "↓" : "↑") : ""}</span>
         </button>
       </th>
@@ -114,7 +116,7 @@ function CorpusTable({ selected, onSelect }) {
                     </button>
                   </td>
                   <td className="muted corpus-table__variety">{ci.variety_note || varietyInfo(ci.variety).label}</td>
-                  <td className="num">{ci.tokens ? compact(ci.tokens) : "—"}</td>
+                  <td className="num" onClick={(e) => e.stopPropagation()}>{ci.tokens ? <Size corpus={c} label={false} /> : "—"}</td>
                   <td className="muted corpus-table__annotation">{corpusFamily(c)?.label}</td>
                   <td className="num corpus-table__meta">{(ci.metadata || []).length ? `${(ci.metadata || []).length} fields` : "none"}</td>
                   <td title={why}><span className="corpus-table__status"><span className="dot" style={{ background: tone }} />{status}</span></td>
@@ -157,13 +159,13 @@ export default function Corpus() {
 
   return (
     <div className="page">
-      <PageHeader aside={ci ? `${name} · ${compact(ci.tokens)} tokens` : name} />
+      <PageHeader aside={ci ? <>{name} · <Size corpus={name} /></> : name} />
 
       <CorpusTable selected={name} onSelect={(c) => { setName(c); setAttr(""); setValues(null); setField(null); }} />
 
       <div className="grid grid--split" style={{ alignItems: "start" }}>
         <div className="stack">
-          <Card title={ci.description} sub={`${ci.variety_note || varietyInfo(ci.variety).label} · ${thousands(ci.tokens)} indexed tokens (incl. punctuation) · encoding ${ci.encoding} · ${corpusFamily(name)?.label}`}
+          <Card title={ci.description} sub={<>{ci.variety_note || varietyInfo(ci.variety).label} · <SizeNote corpus={name} /> · encoding {ci.encoding} · {corpusFamily(name)?.label}</>}
             actions={<Button variant="primary" disabled={!isSearchable(ci)} onClick={() => { setQuery({ ...query, corpus: name, meta_attr: "", meta_value: "", filters: [] }); setSearch(null); setScreen("search"); }}>Search this corpus</Button>}>
             <div className="stack" style={{ gap: 16 }}>
               {ci.available === false && <Notice tone="warn">{name} was not in the server's corpus registry when you connected, so it cannot be searched now. The details below are from the app's built-in description.</Notice>}
@@ -246,3 +248,10 @@ function FieldNote({ corpus, field }) {
 }
 
 export { ExplainPanel };
+
+/** "1,137,466 indexed tokens (punctuation included)" or the word count, as a switch. */
+function SizeNote({ corpus }) {
+  const { unit, denom } = useUnits([corpus]);
+  const words = unit === "words" && !denom(corpus).pending;
+  return <><Size corpus={corpus} format="thousands" /> {words ? "(punctuation left out)" : "indexed (punctuation included)"}</>;
+}

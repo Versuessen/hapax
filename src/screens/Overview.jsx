@@ -9,6 +9,8 @@ import { describeFilters } from "../lib/filters.js";
 import { LineChart, Legend, SERIES } from "../components/charts.jsx";
 import { compact, perMillion, rate, thousands } from "../lib/format.js";
 import { corpusColor, varietyInfo } from "../nav.js";
+import { queryLabel } from "../lib/query.js";
+import { Rate, Size, UnitLabel } from "../components/Units.jsx";
 
 export const POSITIONS = ["L4", "L3", "L2", "L1", "R1", "R2", "R3", "R4"];
 
@@ -50,8 +52,8 @@ function SearchChips({ q }) {
   return (
     <div className="row" style={{ gap: 6 }}>
       <Chip dot={corpusColor(q.corpus)}>{q.corpus}</Chip>
-      <Chip>{q.field || "word"} = {q.value}{q.ignore_case ? " %c" : ""}</Chip>
-      {describeFollowers(q).map((d) => <Chip key={d}>{d}</Chip>)}
+      <Chip>{queryLabel(q)}</Chip>
+      {!q.manual && describeFollowers(q).map((d) => <Chip key={d}>{d}</Chip>)}
       {describeFilters(q).map((d) => <Chip key={d} tone="warn">{d}</Chip>)}
     </div>
   );
@@ -91,7 +93,7 @@ export default function Overview() {
           label="Working corpus"
           figure={<span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>{ci && <Flag variety={ci.variety} note={ci.variety_note} size={22} />}{query.corpus}</span>}
           small
-          delta={ci ? `${compact(ci.tokens)} tokens · ${ci.variety_note || varietyInfo(ci.variety).label}` : "—"}
+          delta={ci ? <><Size corpus={query.corpus} bare /> · {ci.variety_note || varietyInfo(ci.variety).label}</> : "—"}
           onClick={() => go("corpora/details")}
         />
         <Stat
@@ -106,7 +108,7 @@ export default function Overview() {
 
       <div className="grid grid--split" style={{ alignItems: "start" }}>
         <Card title={live ? "Current search" : last ? "Continue where you left off" : "Start"}
-          sub={live ? `${thousands(live.data.total)} matches · ${rate(perMillion(live.data.total, ci?.tokens))} per million tokens` : last ? `Last run ${new Date(last.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} · ${thousands(last.total)} matches` : "Three ways in, depending on what you know"}>
+          sub={live ? <>{thousands(live.data.total)} matches · <Rate count={live.data.total} corpus={live.request.corpus} /> <UnitLabel corpora={[live.request.corpus]} /></> : last ? `Last run ${new Date(last.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} · ${thousands(last.total)} matches` : "Three ways in, depending on what you know"}>
           {live || last ? (
             <div className="stack" style={{ gap: 16 }}>
               <SearchChips q={live ? live.request : last.query} />

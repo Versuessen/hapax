@@ -14,6 +14,8 @@ import { safeFileStem, seconds, thousands } from "../lib/format.js";
 import { corpusColor, isSearchable, orderedCorpora } from "../nav.js";
 import { Flag } from "../components/Flag.jsx";
 import { FilterEditor } from "../components/FilterEditor.jsx";
+import { hasQuery, queryLabel } from "../lib/query.js";
+import { UnitLabel, useUnits } from "../components/Units.jsx";
 
 const GROUPABLE = ["word", "lexeme", "pos", "class", "lemma", "hw", "rel", "usas"];
 
@@ -27,7 +29,7 @@ function useBase() {
   const { search, query } = useApp();
   if (search && search.key === queryKey(query)) return { base: search.request, key: search.key, total: search.data.total };
   if (search) return { stale: true };
-  if (query.value) return { base: query, key: queryKey(query), total: null };
+  if (hasQuery(query)) return { base: query, key: queryKey(query), total: null };
   return { none: true };
 }
 
@@ -55,9 +57,9 @@ function QuerySummary({ q }) {
   return (
     <div className="row" style={{ gap: 6 }}>
       <Chip dot={corpusColor(q.corpus)}>{q.corpus}</Chip>
-      <Chip>{q.field} = {q.value}{q.ignore_case ? " %c" : ""}</Chip>
-      {describeFollowers(q).map((d) => <Chip key={d}>{d}</Chip>)}
-      {q.sentence_only && <Chip>within s</Chip>}
+      <Chip>{queryLabel(q)}</Chip>
+      {!q.manual && describeFollowers(q).map((d) => <Chip key={d}>{d}</Chip>)}
+      {!q.manual && q.sentence_only && <Chip>within s</Chip>}
       {describeFilters(q).map((d) => <Chip key={d} tone="warn">{d}</Chip>)}
     </div>
   );
@@ -86,7 +88,12 @@ export function ExplainPanel({ corpus, field, value, onClose }) {
 
 /** Which word of the match to count: options depend on the search's shape. */
 function positionOptions(q) {
-  const words = [q.value, ...followersOf(q).map((w) => w.value)];
+  // Typed CQP: match length is unknown, so offer its first and last word and the whole match.
+  if (q.manual) {
+    return [["first", "The first matched word"], ["last", "The last matched word"], ["phrase", "The whole match"],
+      ["before", "The word just before the match"], ["after", "The word just after the match"]];
+  }
+  const words = [q.value || "any word", ...followersOf(q).map((w) => w.value)];
   const opts = [];
   if (words.length === 1) {
     opts.push(["first", "The matched word"]);
@@ -99,7 +106,7 @@ function positionOptions(q) {
 }
 
 function positionHint(pos, q) {
-  const words = [q.value, ...followersOf(q).map((w) => w.value)];
+  const words = [q.value || "any word", ...followersOf(q).map((w) => w.value)];
   if (pos === "phrase") return "Counts each distinct matched phrase, e.g. “you and me” vs “you and I”. With Ignore case, capitalisation is merged.";
   if (pos?.startsWith("word:")) {
     const n = Number(pos.slice(5));
@@ -149,7 +156,7 @@ function Frequencies() {
     if (!results.some((r) => r.data)) return toast(results.map((r) => `${r.corpus}: ${r.error}`).join(" · "), "negative", 0);
     setPick(null);
     setAnalysis((a) => ({ ...a, frequencies: { key: b.key, field, position, results, elapsed: (performance.now() - t0) / 1000, corpus: b.base.corpus } }));
-    log({ label: `Counted “${b.base.value}” by ${field} (${posOpts.find(([v]) => v === position)?.[1] || position})`, detail: `${results.length} corpus${results.length === 1 ? "" : "es"}` });
+    log({ label: `Counted “${queryLabel(b.base)}” by ${field} (${posOpts.find(([v]) => v === position)?.[1] || position})`, detail: `${results.length} corpus${results.length === 1 ? "" : "es"}` });
   };
 
   return (
@@ -318,7 +325,7 @@ function Collocates() {
     const r = await runCollocates({ run, query: b.base, sample, key: b.key, retry: () => go() });
     if (!r) return;
     setAnalysis((a) => ({ ...a, collocates: r }));
-    log({ label: `Nearby words of “${b.base.value}”`, detail: `${r.data.groups.length} words · ${seconds(r.elapsed)}` });
+    log({ label: `Nearby words of “${queryLabel(b.base)}”`, detail: `${r.data.groups.length} words · ${seconds(r.elapsed)}` });
   };
   const max = Math.max(1, ...rows.map((r) => r.total));
 
@@ -405,7 +412,7 @@ function Distribution() {
     const out = await run(`Counting matches across ${attr}`, "run_distribution", { request: { ...b.base, attribute: attr } }, { retry: () => go() });
     if (!out) return;
     setAnalysis((a) => ({ ...a, distribution: { key: b.key, attr, data: out.data, elapsed: out.elapsed_seconds, corpus: b.base.corpus } }));
-    log({ label: `Distribution of “${b.base.value}” across ${attr}`, detail: `${out.data.rows.length} values · ${seconds(out.elapsed_seconds)}` });
+    log({ label: `Distribution of “${queryLabel(b.base)}” across ${attr}`, detail: `${out.data.rows.length} values · ${seconds(out.elapsed_seconds)}` });
   };
   const raw = res?.data?.rows || [];
   const brownLike = raw.length > 0 && raw.filter((r) => brownCode(r.value)).length / raw.length >= 0.8;
@@ -415,6 +422,7 @@ function Distribution() {
   const max = Math.max(1e-9, ...reliable.map((r) => r.per_million));
   const covered = all.filter((r) => r.hits > 0).length;
   const filtered = describeFilters(b.base).length > 0;
+  const units = useUnits([res?.corpus]);
 
   return (
     <div className="stack">
@@ -455,17 +463,18 @@ function Distribution() {
           }>
           <div tabIndex={0} role="region" aria-label="Matches per metadata value" className="table-wrap" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
             <table className="table">
-              <thead><tr><th>{brownLike && byGenre ? "Genre category" : res.attr}</th><th className="num">Matches</th><th className="num">Tokens in group</th><th style={{ width: "28%" }}>Rate</th><th className="num">Per million</th></tr></thead>
+              <thead><tr><th>{brownLike && byGenre ? "Genre category" : res.attr}</th><th className="num">Matches</th><th className="num"><button type="button" className="unit-toggle" onClick={units.toggle} title={`Size of each group. Click to switch to ${units.unit === "words" ? "tokens" : "words (estimated from the corpus's share of words)"}.`}>{units.unit === "words" && !units.denom(res.corpus).pending ? "≈ Words" : "Tokens"} in group</button></th><th style={{ width: "28%" }}>Rate</th><th className="num"><UnitLabel corpora={[res.corpus]} approx prefix="Per million" /></th></tr></thead>
               <tbody>
                 {rows.map((r, i) => {
                   const small = r.tokens < minTokens;
+                  const d = units.per(r.hits, res.corpus, r.tokens);
                   return (
                     <tr key={r.value + i} style={small ? { opacity: 0.5 } : undefined} title={small ? "Group too small for a stable rate" : ""}>
                       <td className="mono">{r.value || "(empty)"}</td>
                       <td className="num">{thousands(r.hits)}</td>
-                      <td className="num">{r.tokens ? thousands(r.tokens) : "—"}</td>
+                      <td className="num">{r.tokens ? thousands(d.n) : "—"}</td>
                       <td>{small ? <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>small group</span> : <BarCell value={r.per_million} max={max} color={SERIES[0]} />}</td>
-                      <td className="num">{r.tokens ? r.per_million.toFixed(2) : "—"}</td>
+                      <td className="num">{r.tokens ? d.value.toFixed(2) : "—"}</td>
                     </tr>
                   );
                 })}

@@ -6,6 +6,9 @@ import { canonicalScreen } from "../nav.js";
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
 
+const UNIT_KEY = "hapax.rateUnit";
+const WORDS_KEY = "hapax.wordCounts";
+
 export const EMPTY_QUERY = {
   corpus: "BROWN-LEGACY", field: "word", value: "", regex: false, ignore_case: true,
   second_field: "word", second_value: "", gap: 0, sentence_only: false, meta_attr: "", meta_value: "", filters: [],
@@ -13,7 +16,7 @@ export const EMPTY_QUERY = {
 
 /** Stable key of everything that changes a result (F7: stale-result guard). */
 export const queryKey = (q) =>
-  JSON.stringify([q.corpus, q.field, q.value, !!q.regex, !!q.ignore_case, q.second_field, q.second_value, Number(q.gap || 0), !!q.sentence_only, q.meta_attr, q.meta_value, (q.next || []).map((t) => [t.field, t.value, Number(t.gap || 0), !!t.optional]), (q.filters || []).map((f) => [f.attr, f.op, f.value, f.from ?? null, f.to ?? null])]);
+  JSON.stringify([q.corpus, q.field, q.value, !!q.regex, !!q.ignore_case, q.second_field, q.second_value, Number(q.gap || 0), !!q.sentence_only, q.meta_attr, q.meta_value, (q.next || []).map((t) => [t.field, t.value, Number(t.gap || 0), !!t.optional]), (q.filters || []).map((f) => [f.attr, f.op, f.value, f.from ?? null, f.to ?? null]), !!q.manual, q.manual ? q.cqp || "" : ""]);
 
 let toastSeq = 0;
 /** Filter presets lived in localStorage before 1.x; copy them into preferences.json once. */
@@ -118,7 +121,7 @@ export function AppProvider({ children }) {
     if (!draftReady.current) return;
     const t = setTimeout(() => {
       try {
-        const blank = !query.value && !(query.filters || []).length && !(query.next || []).length && !query.second_value && !query.meta_value;
+        const blank = !query.value && !query.cqp?.trim() && !(query.filters || []).length && !(query.next || []).length && !query.second_value && !query.meta_value;
         if (blank) localStorage.removeItem(QUERY_KEY);
         else localStorage.setItem(QUERY_KEY, JSON.stringify(query));
       } catch { /* storage blocked: the form simply starts empty next time */ }
@@ -311,6 +314,45 @@ export function AppProvider({ children }) {
 
   const corpusInfo = useCallback((name) => info?.corpora?.[name], [info]);
 
+  // ---- rates per million tokens or per million words (click a rate or size to switch) ----
+  // Word counts (tokens with a letter or digit) are measured once per corpus on
+  // the server and kept on this computer, keyed by the corpus size.
+  const [unit, setUnit] = useState(() => { try { return localStorage.getItem(UNIT_KEY) === "words" ? "words" : "tokens"; } catch { return "tokens"; } });
+  const [wordCounts, setWordCounts] = useState(() => { try { return JSON.parse(localStorage.getItem(WORDS_KEY) || "{}"); } catch { return {}; } });
+  const wanted = useRef(new Set());
+  const failedWords = useRef(new Set());
+  const [wantTick, setWantTick] = useState(0);
+  const toggleUnit = useCallback(() => setUnit((u) => {
+    const next = u === "words" ? "tokens" : "words";
+    try { localStorage.setItem(UNIT_KEY, next); } catch { /* per-viewer convenience only */ }
+    return next;
+  }), []);
+  const wordsOf = useCallback((corpus) => {
+    const w = wordCounts[corpus];
+    const t = info?.corpora?.[corpus]?.tokens;
+    return w && (!t || w.tokens === t) ? w.words : null;
+  }, [wordCounts, info]);
+  const needWords = useCallback((list) => {
+    let added = false;
+    for (const c of list) if (c && !wanted.current.has(c)) { wanted.current.add(c); added = true; }
+    if (added) setWantTick((t) => t + 1);
+  }, []);
+  useEffect(() => {
+    if (unit !== "words" || busy || !connection.connected || !info) return;
+    const next = [...wanted.current].find((c) => info.corpora[c] && wordsOf(c) == null && !failedWords.current.has(c) && info.corpora[c].available !== false && info.corpora[c].encoding !== "<unsupported>");
+    if (!next) return;
+    run(`Counting words in ${next} (once)`, "word_count", { corpus: next }, { quiet: true })
+      .then((out) => {
+        if (!out) return;
+        setWordCounts((m) => {
+          const n = { ...m, [next]: { words: out.data.words, tokens: info.corpora[next].tokens } };
+          try { localStorage.setItem(WORDS_KEY, JSON.stringify(n)); } catch { /* recounted next time */ }
+          return n;
+        });
+      })
+      .catch((e) => { failedWords.current.add(next); toast(`Could not count the words in ${next}: ${e.message}`, "warning", 8000); });
+  }, [unit, busy, connection.connected, info, wantTick, wordsOf, run, toast]);
+
   const value = useMemo(
     () => ({
       info, prefs, setPrefs, connection, engine, busy, lastRun, toasts, toast, dismissToast,
@@ -319,9 +361,10 @@ export function AppProvider({ children }) {
       consoleLog, consoleOpen, setConsoleOpen, clearConsole,
       query, setQuery, search, setSearch, analysis, setAnalysis,
       evidence, setEvidence, evidenceDirty, setEvidenceDirty, workflow, setWorkflow,
+      unit, toggleUnit, wordsOf, needWords,
     }),
     [info, prefs, connection, engine, busy, lastRun, toasts, toast, dismissToast, screen, dialog, hostKey, answerHostKey, theme,
-     run, cancel, connect, disconnect, corpusInfo, activity, log, recent, remember, corpusCheck, discover, consoleLog, consoleOpen, setConsoleOpen, clearConsole, query, search, analysis, evidence, evidenceDirty, workflow, pending]
+     run, cancel, connect, disconnect, corpusInfo, activity, log, recent, remember, corpusCheck, discover, consoleLog, consoleOpen, setConsoleOpen, clearConsole, query, search, analysis, evidence, evidenceDirty, workflow, pending, unit, toggleUnit, wordsOf, needWords]
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

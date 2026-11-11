@@ -13,7 +13,7 @@ const STARTUP_DELAY_MS = 4000; // let the window settle before touching the netw
 export function UpdateNotice() {
   const { toast } = useApp();
   const [update, setUpdate] = useState(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [progress, setProgress] = useState(null); // null = idle, number 0..1, or "install"
   const [dismissed, setDismissed] = useState(false);
   const checking = useRef(false);
@@ -43,7 +43,8 @@ export function UpdateNotice() {
   if (!update || dismissed) return null;
   const busy = progress != null;
   const linux = /Linux/i.test(navigator.userAgent);
-  const notes = update.notes.split("\n").map((l) => l.replace(/^[-*]\s*/, "").trim()).filter(Boolean);
+  const notes = parseNotes(update.notes);
+  const count = notes.filter((n) => n.kind === "item").length;
 
   const install = async () => {
     setProgress(0);
@@ -69,13 +70,22 @@ export function UpdateNotice() {
           </button>
         )}
       </div>
-      {notes.length > 0 && (
+      {count > 0 && (
         <>
           <button type="button" className="update__toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-            What changed ({notes.length})
+            What changed ({count})
             <ChevronDown {...ICON} size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform var(--dur)" }} aria-hidden="true" />
           </button>
-          {open && <ul className="update__notes">{notes.slice(0, 30).map((n, i) => <li key={i}>{n}</li>)}</ul>}
+          {open && (
+            <div className="update__notes" tabIndex={0} role="region" aria-label="What changed">
+              {groupNotes(notes).map((g, i) => (
+                <div key={i}>
+                  {g.heading && <div className="update__group">{g.heading}</div>}
+                  <ul>{g.items.slice(0, 30).map((t, j) => <li key={j}>{inline(t)}</li>)}</ul>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
       {busy ? (
@@ -91,4 +101,37 @@ export function UpdateNotice() {
       )}
     </section>
   );
+}
+
+/**
+ * Release notes: `## ` headings, `- ` items (continuation lines join the item)
+ * and **bold**. See docs/releasing.md → Writing release notes.
+ */
+export function parseNotes(text) {
+  const out = [];
+  for (const raw of String(text || "").split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^#{1,3}\s+/.test(line)) out.push({ kind: "heading", text: line.replace(/^#+\s+/, "") });
+    else if (/^[-*]\s+/.test(line)) out.push({ kind: "item", text: line.replace(/^[-*]\s+/, "") });
+    else if (out.at(-1)?.kind === "item") out.at(-1).text += ` ${line}`;
+    else out.push({ kind: "item", text: line });
+  }
+  return out;
+}
+
+function groupNotes(notes) {
+  const groups = [];
+  for (const n of notes) {
+    if (n.kind === "heading" || !groups.length) groups.push({ heading: n.kind === "heading" ? n.text : null, items: [] });
+    if (n.kind === "item") groups.at(-1).items.push(n.text);
+  }
+  return groups.filter((g) => g.items.length);
+}
+
+function inline(text) {
+  const code = (t, k) => t.split(/(`[^`]+`)/g).map((part, i) =>
+    /^`[^`]+`$/.test(part) ? <code key={`${k}.${i}`}>{part.slice(1, -1)}</code> : part);
+  return text.split(/(\*\*.+?\*\*)/g).map((part, i) =>
+    /^\*\*.+\*\*$/.test(part) ? <strong key={i}>{code(part.slice(2, -2), i)}</strong> : code(part, i));
 }

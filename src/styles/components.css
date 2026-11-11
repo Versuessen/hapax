@@ -539,7 +539,10 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text-1); }
 .update__sub { font-size: var(--fs-mono); color: var(--text-3); margin-top: 2px; }
 .update__toggle { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: var(--text-2); font: 500 var(--fs-mono)/1.4 var(--font-mono); cursor: pointer; }
 .update__toggle:hover { color: var(--text-1); }
-.update__notes { margin: 0; padding: 10px 12px 10px 28px; max-height: 180px; overflow: auto; border-radius: var(--radius-md); background: var(--bg-sidebar); font-size: 13px; line-height: 1.5; color: var(--text-2); }
+.update__notes { margin: 0; padding: 10px 12px; max-height: 260px; overflow: auto; border-radius: var(--radius-md); background: var(--bg-sidebar); font-size: 13px; line-height: 1.5; color: var(--text-2); display: flex; flex-direction: column; gap: 8px; }
+.update__notes ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; }
+.update__notes strong { color: var(--text-1); font-weight: 600; }
+.update__group { font: 500 var(--fs-micro, 11px)/1.4 var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin-bottom: 4px; }
 .update__progress { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-mono); color: var(--text-3); }
 .update__bar { height: 4px; border-radius: 99px; background: var(--border-subtle); overflow: hidden; }
 .update__bar > span { display: block; height: 100%; background: var(--positive); transition: width 160ms linear; }
@@ -670,3 +673,20 @@ th.num .th-sort { flex-direction: row-reverse; }
 .goto { display: inline-flex; align-items: center; gap: 4px; }
 .goto__input { width: 92px; }
 .goto__input[aria-invalid="true"] { border-color: var(--negative, #c0392b); }
+
+/* ===== Autocomplete (codes, typed CQP) ===================================== */
+.suggest-wrap { position: relative; flex: 1; min-width: 0; }
+.suggest-wrap > .input { width: 100%; }
+.cqp-editor { height: auto; min-height: 76px; padding-top: 9px; padding-bottom: 9px; line-height: 1.55; resize: vertical; white-space: pre-wrap; }
+.suggest { position: absolute; z-index: 45; left: 0; top: calc(100% + 4px); width: max(100%, 320px); max-width: min(520px, 92vw); max-height: 288px; overflow-y: auto; margin: 0; padding: 4px; list-style: none; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-pop); animation: rise var(--dur-fast) var(--ease); }
+.suggest__item { display: grid; grid-template-columns: minmax(64px, max-content) 1fr; gap: 12px; align-items: baseline; padding: 6px 10px; border-radius: var(--radius-sm, 6px); cursor: pointer; color: var(--text-2); font-size: var(--fs-small); }
+.suggest__item[aria-selected="true"], .suggest__item:hover { background: var(--surface-hover); color: var(--text-1); }
+.suggest__code { color: var(--text-1); font-size: var(--fs-mono); }
+.suggest__item--group .suggest__code { color: var(--link, var(--accent-blue)); }
+.suggest__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .suggest { animation: none; } }
+
+/* ===== Tokens / words switch (any rate label or corpus size) ============== */
+.unit-toggle { display: inline; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-decoration: underline dotted; text-decoration-color: var(--text-3); text-underline-offset: 3px; border-radius: 3px; }
+.unit-toggle:hover { color: var(--text-1); text-decoration-color: currentColor; }
+.unit-toggle:focus-visible { outline: 2px solid var(--focus, var(--accent-blue)); outline-offset: 2px; }

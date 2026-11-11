@@ -8,6 +8,8 @@ import { useApp } from "../state/store.jsx";
 import { invoke } from "../lib/ipc.js";
 import { CORPUS_ORDER, corporaByVariety } from "../nav.js";
 import { Checkbox, Field, ICON, Input, Segmented, Select } from "./ui.jsx";
+import { CodeInput, CqpEditor, useCodes } from "./Suggest.jsx";
+import { hasQuery } from "../lib/query.js";
 
 export const FIELD_LABELS = {
   word: "Written word",
@@ -37,6 +39,25 @@ export function fieldOptions(info, { lexeme = true } = {}) {
   return opts;
 }
 
+const CODE_HINT = {
+  pos: "e.g. NN1 · VV* for a group · or type “verb”",
+  class: "e.g. SUBST · or type “noun”",
+  usas: "e.g. A1 · or type a meaning",
+  rel: "e.g. nsubj · or type “subject”",
+};
+
+/** Example queries for the corpus's own attributes. */
+function cqpExamples(ci) {
+  if (!ci) return [];
+  const has = (a) => ci.positional.includes(a);
+  const out = [];
+  if (has("pos")) out.push([ci.lexeme === "hw" ? '[pos="VV.*"] [pos="AT0"]' : '[pos="VB.*"] [pos="DT"]', "a verb, then an article or determiner"]);
+  if (ci.lexeme) out.push([`[${ci.lexeme}="time"] within s`, "every form of “time”, within a sentence"]);
+  out.push(['"very" [] "good"', "very, any one word, good"]);
+  if (ci.metadata?.length) out.push(["[]", "every word — add a filter below to choose the documents"]);
+  return out;
+}
+
 export function resolvedField(info, field) {
   return field === "lexeme" ? info?.lexeme : field;
 }
@@ -58,7 +79,7 @@ export function useCqpPreview(query, enabled = true) {
   // and an identity dependency re-ran this effect (and set state) on every render.
   const key = JSON.stringify(query);
   useEffect(() => {
-    if (!enabled || !query.value) {
+    if (!enabled || !hasQuery(query)) {
       setState((s) => (s.preview || s.error ? { preview: null, error: null } : s));
       return;
     }
@@ -77,11 +98,15 @@ export function useCqpPreview(query, enabled = true) {
 }
 
 /**
- * Structured query editor. Only allow-listed attributes reach the Rust
- * compiler; nothing typed here is ever sent as raw CQP.
+ * Query editor. "Build" sends a structured query that the Rust compiler turns
+ * into CQP from allow-listed attributes. "Write CQP" (where `allowCqp`) sends
+ * typed CQP, which the Rust side checks (cqp.rs) so that it stays one query
+ * expression and can never become a command.
  */
-export function QueryBuilder({ query, onChange, onSubmit, compact = false, showCorpus = true, showFilters = true, idPrefix = "q", errorId = null }) {
+export function QueryBuilder({ query, onChange, onSubmit, compact = false, showCorpus = true, showFilters = true, idPrefix = "q", errorId = null, allowCqp = false }) {
   const { info } = useApp();
+  const codes = useCodes(query.corpus);
+  const manual = allowCqp && !!query.manual;
   const [advanced, setAdvanced] = useState(!!query.regex);
   const [formsOpen, setFormsOpen] = useState(false);
   const filters = filtersOf(query);
@@ -105,35 +130,77 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
     onSubmit?.();
   };
 
+  // Switching to Write CQP starts from the current search (without filters,
+  // which stay in their own section), so a built query can be refined by hand.
+  const setMode = async (m) => {
+    if ((m === "cqp") === manual) return;
+    if (m === "form") return onChange({ ...query, manual: false });
+    let cqp = query.cqp || "";
+    if (!cqp.trim() && (query.value?.trim() || words.some((w) => w.value.trim()))) {
+      cqp = await invoke("preview_query", { query: { ...query, manual: false, filters: [], meta_attr: "", meta_value: "" } }).then((p) => p.expression).catch(() => "");
+    }
+    onChange({ ...query, manual: true, cqp });
+    setTimeout(() => document.getElementById(`${idPrefix}-cqp`)?.focus(), 0);
+  };
+
   return (
     <form onSubmit={submit} className="stack" style={{ gap: 14 }}>
+      {allowCqp && (
+        <div className="row" style={{ gap: 10 }}>
+          <Segmented small label="How to write the search" value={manual ? "cqp" : "form"} onChange={setMode}
+            options={[["form", "Build"], ["cqp", "Write CQP"]]} />
+          <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>
+            {manual ? "Type a CQP query yourself; suggestions appear as you type." : "Choose fields and values, or switch to writing CQP yourself."}
+          </span>
+        </div>
+      )}
       <div className="form-grid">
         {showCorpus && (
           <Field label="Corpus" htmlFor={`${idPrefix}-corpus`}>
             <Select id={`${idPrefix}-corpus`} value={query.corpus} options={corpusOptions(info)} onChange={(e) => onChange({ ...clearFilters(withFollowers(query, words.map((w) => ({ ...w, field: "word" })))), corpus: e.target.value, field: "word" })} />
           </Field>
         )}
+        {manual ? null : <>
         <Field label="Find by" htmlFor={`${idPrefix}-field`}>
           <Select id={`${idPrefix}-field`} value={query.field} options={fieldOptions(ci)} onChange={(e) => set({ field: e.target.value })} />
         </Field>
         <Field label="Value" htmlFor={`${idPrefix}-value`}>
           <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
-            <Input id={`${idPrefix}-value`} data-search-term aria-describedby={errorId || undefined} value={query.value} placeholder={field === "pos" ? "e.g. NN1, JJ" : "e.g. jury  ·  I|me for either"} onChange={(e) => set({ value: e.target.value })} spellCheck={false} maxLength={120} style={{ flex: 1 }} />
+            <CodeInput id={`${idPrefix}-value`} data-search-term aria-describedby={errorId || undefined} value={query.value} field={field} codes={codes}
+              placeholder={CODE_HINT[field] || "e.g. jury  ·  I/me for either  ·  walk* for any ending"} onChange={(v) => set({ value: v })} spellCheck={false} maxLength={120} />
             {(query.field === "word" || query.field === "lexeme") && (
               <button type="button" className="btn btn--ghost" aria-expanded={formsOpen} onClick={() => setFormsOpen((o) => !o)} title="Find every form of this word"
-                disabled={!query.value.trim() || query.value.includes("|") || /\s/.test(query.value.trim())}>
+                disabled={!query.value.trim() || /[|/*]/.test(query.value) || /\s/.test(query.value.trim())}>
                 <Sparkles {...ICON} size={14} /> All forms
               </button>
             )}
           </div>
         </Field>
+        </>}
       </div>
 
-      {formsOpen && (
+      {manual && (
+        <Field label="CQP query" htmlFor={`${idPrefix}-cqp`}>
+          <CqpEditor id={`${idPrefix}-cqp`} value={query.cqp || ""} onChange={(v) => set({ cqp: v })} info={ci} codes={codes}
+            describedBy={[`${idPrefix}-cqp-help`, errorId].filter(Boolean).join(" ")} />
+          <div id={`${idPrefix}-cqp-help`} className="field__hint">
+            Values in quotes are regular expressions: <code>VV.*</code> is every code starting VV. <code>[]</code> is any word — with a
+            filter below, every word of those documents. One query only: commands and <code>;</code> are refused.
+          </div>
+          <div className="row" style={{ gap: 6, marginTop: 6 }}>
+            <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>Examples:</span>
+            {cqpExamples(ci).map(([q, t]) => (
+              <button key={q} type="button" className="chip-toggle mono" title={t} onClick={() => set({ cqp: q })}>{q}</button>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      {!manual && formsOpen && (
         <FormsHelper query={query} ci={ci} onApply={(patch) => { set(patch); setFormsOpen(false); }} onClose={() => setFormsOpen(false)} />
       )}
 
-      {words.length > 0 && (
+      {!manual && words.length > 0 && (
         <ol className="seq" aria-label="Following words">
           {words.map((w, i) => {
             const n = i + 2;
@@ -145,9 +212,9 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
                 <Select small aria-label={`Word ${n}: position`} value={String(w.gap)} onChange={(e) => setWord(i, { gap: Number(e.target.value) })}
                   options={[["0", "right after"], ...Array.from({ length: 10 }, (_, k) => [String(k + 1), `within ${k + 1} word${k ? "s" : ""}`])]} />
                 <Select small aria-label={`Word ${n}: find by`} value={w.field} options={fieldOptions(ci)} onChange={(e) => setWord(i, { field: e.target.value })} />
-                <Input id={`${idPrefix}-w${n}`} aria-label={`Word ${n}: value`} value={w.value} spellCheck={false} maxLength={120}
-                  placeholder={f === "pos" ? "e.g. NN1" : f === "class" ? "e.g. ADV" : "e.g. and  ·  I|me"}
-                  onChange={(e) => setWord(i, { value: e.target.value })} />
+                <CodeInput id={`${idPrefix}-w${n}`} aria-label={`Word ${n}: value`} value={w.value} spellCheck={false} maxLength={120} field={f} codes={codes}
+                  placeholder={CODE_HINT[f] || "e.g. and  ·  I/me"}
+                  onChange={(v) => setWord(i, { value: v })} />
                 <Checkbox label="Optional" checked={w.optional} disabled={last && !w.optional} onChange={(v) => setWord(i, { optional: v })}
                   title={last ? "The last word can't be optional — remove it instead" : "Match with or without this word"} />
                 <button type="button" className="btn btn--ghost btn--icon" aria-label={`Remove word ${n}`} title="Remove word"
@@ -159,7 +226,7 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
           })}
         </ol>
       )}
-      <div className="row" style={{ gap: 10 }}>
+      {!manual && <div className="row" style={{ gap: 10 }}>
         <button type="button" className="btn btn--ghost" disabled={words.length >= MAX_NEXT}
           onClick={() => {
             setWords([...words, { field: "word", value: "", gap: 0, optional: false }]);
@@ -168,16 +235,16 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
           <Plus {...ICON} size={14} /> Add word
         </button>
         <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>
-          {words.length ? `${words.length + 1}-word sequence · use | for alternatives (I|me)` : "Search for a phrase: add the words that follow"}
+          {words.length ? `${words.length + 1}-word sequence · use | or / for alternatives (I/me)` : "Search for a phrase: add the words that follow"}
         </span>
-      </div>
+      </div>}
 
       {showFilters && <div className="stack" style={{ gap: 8 }}>
         <div className="section-label">Only in documents where</div>
         <FilterEditor corpus={query.corpus} filters={filters} idPrefix={`${idPrefix}-f`} onChange={(list) => onChange(withFilters(query, list))} />
       </div>}
 
-      <div className="row" style={{ gap: 18 }}>
+      {!manual && <div className="row" style={{ gap: 18 }}>
         <Checkbox label="Ignore case" checked={query.ignore_case} disabled={!foldable} onChange={(v) => set({ ignore_case: v })} title={foldable ? "" : "Case folding works for word, lemma and headword"} />
         <Checkbox label="Within one sentence" checked={query.sentence_only} disabled={!hasS} onChange={(v) => set({ sentence_only: v })} title={hasS ? "" : "This corpus has no sentence attribute"} />
         <span className="spacer" />
@@ -185,9 +252,9 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
           Advanced
           <ChevronDown {...ICON} size={14} style={{ transform: advanced ? "rotate(180deg)" : "none", transition: "transform var(--dur)" }} />
         </button>
-      </div>
+      </div>}
 
-      {advanced && (
+      {!manual && advanced && (
         <div className="stack" style={{ gap: 14, paddingTop: 14, borderTop: "1px solid var(--border-subtle)" }}>
           <div className="row" style={{ gap: 18 }}>
             <Checkbox label="Regex" checked={query.regex} onChange={(v) => set({ regex: v })} title="Treat the first value as a CQP regular expression (max 80 characters)" />

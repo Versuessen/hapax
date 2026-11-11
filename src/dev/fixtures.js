@@ -8,6 +8,7 @@
 
 import corpora from "../../src-tauri/resources/corpora.json";
 import codebook from "../../src-tauri/resources/codebook.json";
+import { checkCqp } from "../lib/cqp.js";
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const params = new URLSearchParams(location.search);
@@ -57,7 +58,8 @@ function hash(s) {
 }
 
 function totalFor(q) {
-  if (!q?.value) return 0;
+  if (q?.manual) return 30 + (hash(q.corpus + q.cqp) % 9000);
+  if (!q?.value) return (q?.filters || []).some((f) => f.attr) ? 1_250_000 + (hash(JSON.stringify(q.filters)) % 900_000) : 0;
   if (q.corpus === "BROWN-LEGACY" && q.value.toLowerCase() === "jury") return q.ignore_case ? 67 : 63;
   if (q.corpus === "BNC-BABY" && q.value === "go" && q.field === "lexeme") return 16147;
   if (q.value === "impossible") return 0;
@@ -73,7 +75,7 @@ function rowsFor(q, offset, limit, total, ctx = 4) {
       start: base + i * 17483,
       end: base + i * 17483 + (q.second_value ? 1 : 0),
       left: words(LEFT[i % LEFT.length]),
-      text: q.value === "jury" || q.value === "Jury" ? NODE[i % NODE.length] : q.second_value ? `${q.value} ${q.second_value.toLowerCase()}` : q.value,
+      text: q.manual ? "matched" : !q.value ? ["the", "of", "and", ",", "to"][i % 5] : q.value === "jury" || q.value === "Jury" ? NODE[i % NODE.length] : q.second_value ? `${q.value} ${q.second_value.toLowerCase()}` : q.value,
       right: RIGHT[i % RIGHT.length].split(" ").slice(0, ctx).join(" "),
       source: q.corpus.includes("LEGACY") ? `A${String((i % 44) + 1).padStart(2, "0")}` : `T${100 + (i % 80)}`,
     });
@@ -93,26 +95,68 @@ function explain(corpus, field, value) {
   return { short: value, full: value, note: "No verified definition is packaged for this field.", reference: "", verified: false };
 }
 
+const escRe = (v) => v.replace(/([.\[\]{}()*+?^$|])/g, "\\$1");
+const glob = (v) => v.replace(/\.\*/g, "*").split("*").map(escRe).join(".*").replace(/(\.\*)+/g, ".*");
+
+// Mirrors query.rs build_query (manual CQP, wildcards, / alternatives, filters alone).
 function compile(q) {
-  const esc = (v) => (q.regex ? v : v.replace(/([.\[\]{}()*+?^$|])/g, "\\$1"));
   const info = corpora[q.corpus];
   if (!info) throw { kind: "validation", message: "Unknown corpus" };
   if (info.encoding === "<unsupported>") throw { kind: "validation", message: `${q.corpus} cannot be searched with CQP on this server: its registry declares a character encoding that CWB does not recognise.` };
-  if (!q.value || q.value.length > 120) throw { kind: "validation", message: "Search values must contain 1–120 characters" };
-  if (/["\\;]/.test(q.value)) throw { kind: "validation", message: "Search values may not contain quotation marks, backslashes, semicolons or control characters" };
+  const active = (q.filters || []).filter((f) => f.attr);
+  if (active.length > 6) throw { kind: "validation", message: "At most 6 document filters" };
+  const term = (f, anchor) => {
+    if (!info.metadata.includes(f.attr)) throw { kind: "validation", message: `${q.corpus} has no metadata attribute '${f.attr}'` };
+    if (f.op === "years") {
+      const a = Number(f.from ?? 1000), b = Number(f.to ?? 2100);
+      if (!(a >= 1000 && b <= 2100 && a <= b)) throw { kind: "validation", message: `Filter on ${f.attr}: enter a year range between 1000 and 2100, earliest first` };
+      return `${anchor}.${f.attr}="(${Array.from({ length: b - a + 1 }, (_, i) => a + i).join("|")}).*"`;
+    }
+    const vals = String(f.value || "").split("|").map((v) => v.trim()).filter(Boolean);
+    if (!vals.length) throw { kind: "validation", message: `Filter on ${f.attr}: enter a value` };
+    const v = vals.length > 1 ? `(${vals.map(glob).join("|")})` : glob(vals[0]);
+    return `${anchor}.${f.attr}${f.op === "not" ? "!=" : "="}"${v}"`;
+  };
+  const terms = (anchor) => [
+    ...(q.meta_attr && q.meta_value?.trim() ? [`${anchor}.${q.meta_attr}="${q.meta_value.trim()}"`] : []),
+    ...active.map((f) => term(f, anchor)),
+  ];
+  if (q.manual) {
+    const c = checkCqp(q.corpus, info, q.cqp);
+    const t = terms("_");
+    if (!t.length) {
+      if (c.allTokens) throw { kind: "validation", message: "[] alone matches every word of the corpus. Add a filter under “Only in documents where” to list every word of those documents." };
+      return { corpus: q.corpus, expression: c.expression, field: "word" };
+    }
+    let e;
+    if (c.allTokens) e = `[${t.join(" & ")}]`;
+    else if (c.hasCut) throw { kind: "validation", message: "Your query uses cut, so the document filters can't be added after it." };
+    else if (c.constraintAt != null) e = `${c.expression.slice(0, c.constraintAt)}:: (${c.expression.slice(c.constraintAt + 2).trim()}) & ${terms("match").join(" & ")}`;
+    else e = `${c.expression} :: ${terms("match").join(" & ")}`;
+    return { corpus: q.corpus, expression: e, field: "word" };
+  }
+  const value = String(q.value || "");
+  if (value.length > 120) throw { kind: "validation", message: "Search values must contain 1–120 characters" };
+  if (/["\;]/.test(value)) throw { kind: "validation", message: "Search values may not contain quotation marks, backslashes, semicolons or control characters" };
   let field = q.field || "word";
   if (field === "lexeme") {
     if (!info.lexeme) throw { kind: "validation", message: "This corpus has no indexed lemma/headword attribute" };
     field = info.lexeme;
   }
   if (!info.positional.includes(field)) throw { kind: "validation", message: `'${field}' is not available in ${q.corpus}` };
-  if (q.ignore_case && !["word", "lemma", "hw"].includes(field)) throw { kind: "validation", message: "Case folding is supported for word, lemma and headword searches" };
-  let e = `[${field}="${esc(q.value)}"${q.ignore_case ? " %c" : ""}]`;
-  const alt = (v) => { const parts = v.trim().split("|").map((x) => x.trim()); if (parts.some((x) => !x)) throw { kind: "validation", message: "Alternatives need a word on both sides of | (for example I|me)" }; return parts.length > 1 ? `(${parts.map(esc).join("|")})` : esc(parts[0]); };
-  e = `[${field}="${q.regex ? q.value : alt(q.value)}"${q.ignore_case ? " %c" : ""}]`;
   const rest = [];
   if (q.second_value?.trim()) rest.push({ field: q.second_field || "word", value: q.second_value, gap: Number(q.gap || 0) });
   for (const t of q.next || []) if (t.value?.trim()) rest.push(t);
+  const anyFirst = !value.trim();
+  if (anyFirst && !rest.length && !terms("match").length) throw { kind: "validation", message: "Type a value to search for — or leave it empty and add a filter under “Only in documents where” to list every word of those documents." };
+  if (q.ignore_case && !anyFirst && !["word", "lemma", "hw"].includes(field)) throw { kind: "validation", message: "Case folding is supported for word, lemma and headword searches" };
+  if (anyFirst && !rest.length) return { corpus: q.corpus, expression: `[${terms("_").join(" & ")}]${q.sentence_only ? " within s" : ""}`, field };
+  const alt = (v) => {
+    const parts = v.trim().split(/[|/]/).map((x) => x.trim());
+    if (parts.some((x) => !x)) throw { kind: "validation", message: "Alternatives need a word on both sides of | or / (for example I|me or I/me)" };
+    return parts.length > 1 ? `(${parts.map(glob).join("|")})` : glob(parts[0]);
+  };
+  let e = anyFirst ? "[]" : `[${field}="${q.regex ? value : alt(value)}"${q.ignore_case ? " %c" : ""}]`;
   if (rest.length > 8) throw { kind: "validation", message: "A sequence can have at most 9 words" };
   rest.forEach((t, i) => {
     let f2 = t.field || "word";
@@ -122,22 +166,7 @@ function compile(q) {
     e += (gap ? ` []{0,${gap}}` : "") + ` [${f2}="${alt(t.value)}"${q.ignore_case && ["word", "lemma", "hw"].includes(f2) ? " %c" : ""}]${t.optional ? "?" : ""}`;
   });
   if (q.sentence_only) e += " within s";
-  const cons = [];
-  if (q.meta_attr && q.meta_value?.trim()) cons.push(`match.${q.meta_attr}="${q.meta_value.trim()}"`);
-  for (const f of q.filters || []) {
-    if (!f.attr) continue;
-    if (!info.metadata.includes(f.attr)) throw { kind: "validation", message: `${q.corpus} has no metadata attribute '${f.attr}'` };
-    if (f.op === "years") {
-      const a = Number(f.from ?? 1000), b = Number(f.to ?? 2100);
-      if (!(a >= 1000 && b <= 2100 && a <= b)) throw { kind: "validation", message: `Filter on ${f.attr}: enter a year range between 1000 and 2100, earliest first` };
-      cons.push(`match.${f.attr}="(${Array.from({ length: b - a + 1 }, (_, i) => a + i).join("|")}).*"`);
-    } else {
-      const vals = String(f.value || "").split("|").map((v) => v.trim()).filter(Boolean);
-      if (!vals.length) throw { kind: "validation", message: `Filter on ${f.attr}: enter a value` };
-      const v = vals.length > 1 ? `(${vals.map((x) => x.replace(/([.\[\]{}()*+?^$|])/g, "\\$1")).join("|")})` : vals[0].replace(/([.\[\]{}()*+?^$|])/g, "\\$1");
-      cons.push(`match.${f.attr}${f.op === "not" ? "!=" : "="}"${v}"`);
-    }
-  }
+  const cons = terms("match");
   if (cons.length) e += ` :: ${cons.join(" & ")}`;
   return { corpus: q.corpus, expression: e, field };
 }
@@ -269,7 +298,8 @@ const handlers = {
   preview_query: ({ query }) => { const c = compile(query); return { ...c, cqp_command: `${c.corpus};\nGUIQuery = ${c.expression};` }; },
   interpret_search: ({ query, total }) => {
     const r = (total * 1e6) / corpora[query.corpus].tokens;
-    return `Found ${total.toLocaleString("en-US")} matches for '${query.value}' by ${query.field}. Corpus-wide reference rate: ${r.toFixed(2)} matches per million indexed tokens. This counts written forms, not necessarily every grammatical form of the word. Next: read several examples, then use Count by annotation to see how they are used, or Combine searches to narrow them down.`;
+    const what = query.manual ? `CQP ${query.cqp}` : query.value ? `'${query.value}' by ${query.field}` : "every word";
+    return `Found ${total.toLocaleString("en-US")} matches for ${what}. Corpus-wide reference rate: ${r.toFixed(2)} matches per million indexed tokens. This counts written forms, not necessarily every grammatical form of the word. Next: read several examples, then use Count by annotation to see how they are used, or Combine searches to narrow them down.`;
   },
   compile_workflow_plan: ({ plan }) => compilePlan(plan),
   explain_workflow_result: ({ plan, total }) => `Your workflow has ${plan.steps.length} steps and found ${total} matching spans in ${plan.corpus}. Set operations compare exact matched token ranges—not documents or sentences.`,
@@ -278,6 +308,10 @@ const handlers = {
   get_glossary: ({ corpus }) => {
     const scheme = ["BNC", "BNC-BABY", "DOORCORP"].includes(corpus) ? "C5" : corpus === "BNC2014-S" ? "C7" : corpus.includes("LEGACY") ? "BROWN" : "PENN";
     const rows = Object.entries(codebook.tagsets[scheme]).sort(([a], [b]) => (a < b ? -1 : 1)).map(([code, label]) => ({ category: "POS", code, label, note: "This is an automated classification, not a guarantee of grammatical correctness." }));
+    const ci = corpora[corpus];
+    if (ci?.positional.includes("class")) Object.entries(codebook.class).forEach(([code, label]) => rows.push({ category: "Class", code, label, note: "" }));
+    if (ci?.positional.includes("usas")) Object.entries(codebook.usas).forEach(([code, label]) => rows.push({ category: "USAS", code, label, note: "" }));
+    if (corpus === "EFCAM") Object.entries(codebook.rel).forEach(([code, label]) => rows.push({ category: "Dependency", code, label, note: "" }));
     codebook.fields.forEach(([code, label, note]) => rows.push({ category: "Field", code, label, note }));
     codebook.concepts.forEach(([code, note]) => rows.push({ category: "Concept", code, label: code, note }));
     return rows;
@@ -327,6 +361,10 @@ const remote = {
         return o;
       }),
     };
+  },
+  word_count: ({ corpus }) => {
+    const t = corpora[corpus]?.tokens || 0;
+    return { corpus, words: Math.round(t * (0.83 + (hash(corpus) % 60) / 1000)), tokens: t };
   },
   run_lexicon: ({ request }) => {
     const scheme = ["BNC", "BNC-BABY", "DOORCORP"].includes(request.corpus) ? "C5" : request.corpus.includes("LEGACY") ? "BROWN" : "PENN";
