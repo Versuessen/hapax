@@ -696,3 +696,10 @@ th.num .th-sort { flex-direction: row-reverse; }
 .unit-toggle { display: inline; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-decoration: underline dotted; text-decoration-color: var(--text-3); text-underline-offset: 3px; border-radius: 3px; }
 .unit-toggle:hover { color: var(--text-1); text-decoration-color: currentColor; }
 .unit-toggle:focus-visible { outline: 2px solid var(--focus, var(--accent-blue)); outline-offset: 2px; }
+
+/* ===== Saved / recent search lists (Home) ================================= */
+.search-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-subtle); max-height: 560px; overflow-y: auto; }
+.search-list__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 16px 10px 24px; border-bottom: 1px solid var(--border-subtle); }
+.search-list__item:last-child { border-bottom: 0; }
+.search-list__title { font-weight: 500; margin-bottom: 6px; }
+.search-list__meta { margin-top: 6px; font: var(--fs-mono)/1.4 var(--font-mono); color: var(--text-3); }
