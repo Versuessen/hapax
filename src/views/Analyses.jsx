@@ -1,17 +1,17 @@
 import { describeFilters } from "../lib/filters.js";
-import { describeFollowers, followersOf } from "../lib/sequence.js";
+import { followersOf } from "../lib/sequence.js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ExternalLink, FileDown, Play, Search as SearchIcon, Sparkles, TextSearch } from "lucide-react";
+import { ExternalLink, FileDown, Play, Sparkles, TextSearch } from "lucide-react";
 import { useApp, queryKey } from "../state/store.jsx";
 import { invoke, openExternal, saveDialog } from "../lib/ipc.js";
-import { Button, Card, Checkbox, EmptyState, Field, ICON, Input, Notice, Segmented, Select, Chip, Tabs } from "../components/ui.jsx";
+import { Button, Card, Checkbox, EmptyState, Field, Input, Notice, Segmented, Select, ScrollTable } from "../components/ui.jsx";
 import { BarCell, SERIES } from "../components/charts.jsx";
 import { FIELD_LABELS } from "../components/QueryBuilder.jsx";
 import { CollocationChart, POSITIONS, collocationSeries } from "../components/charts.jsx";
 import { exportReport } from "../lib/exportReport.js";
 import { useUiState } from "../lib/uiState.js";
 import { safeFileStem, seconds, thousands } from "../lib/format.js";
-import { corpusColor, isSearchable, orderedCorpora } from "../nav.js";
+import { isSearchable, orderedCorpora } from "../nav.js";
 import { Flag } from "../components/Flag.jsx";
 import { FilterEditor } from "../components/FilterEditor.jsx";
 import { hasQuery, queryLabel } from "../lib/query.js";
@@ -240,8 +240,7 @@ function FrequencyResults({ res, pick, setPick, toast, log }) {
         sub={`${res.field} of the ${posLabel} · ${seconds(res.elapsed)}${ok.some((r) => r.data.truncated) ? " · top 300 values per corpus" : ""}${ok.some((r) => r.data.counted != null && r.data.counted < r.data.total) ? " · phrases counted from the first 200,000 matches" : ""}`}
         actions={<Button icon={FileDown} onClick={async () => { const path = await saveDialog({ defaultPath: `${safeFileStem(res.corpus)}_counts.csv` }); if (path) exportReport(toast, log, "Exported counts", invoke("export_table", { path, rows: exportRows })); }}>Export…</Button>}>
         {rows.length ? (
-          <div tabIndex={0} role="region" aria-label="Counts" className="table-wrap table-scroll" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
-            <table className="table">
+          <ScrollTable label="Counts" max={560}>
               <thead>
                 <tr>
                   <th>Value</th>
@@ -265,8 +264,7 @@ function FrequencyResults({ res, pick, setPick, toast, log }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </ScrollTable>
         ) : (
           <EmptyState title="No values">The search matched nothing, so there is nothing to count.</EmptyState>
         )}
@@ -342,8 +340,7 @@ function Collocates() {
             {rows.length ? <CollocationChart result={res.data} /> : <EmptyState title="No neighbours">The sample contained no context tokens.</EmptyState>}
           </Card>
           <Card flush title="All positions" actions={<Button icon={FileDown} onClick={async () => { const path = await saveDialog({ defaultPath: `${safeFileStem(b.base.corpus)}_collocates.csv` }); if (path) exportReport(toast, log, "Exported neighbouring words", invoke("export_table", { path, rows: res.data.groups })); }}>Export…</Button>}>
-            <div tabIndex={0} role="region" aria-label="Nearby words by position" className="table-wrap" style={{ "--table-max": "480px", borderTop: "1px solid var(--border-subtle)" }}>
-              <table className="table">
+            <ScrollTable label="Nearby words by position" max={480}>
                 <thead><tr><th>Word</th><th style={{ width: "18%" }}>Total</th>{POSITIONS.map((p) => <th key={p} className="num">{p}</th>)}<th className="num">Total</th></tr></thead>
                 <tbody>
                   {rows.map((r, i) => (
@@ -355,8 +352,7 @@ function Collocates() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </ScrollTable>
           </Card>
         </>
       ) : (
@@ -457,8 +453,7 @@ function Distribution() {
               <Button icon={FileDown} onClick={async () => { const path = await saveDialog({ defaultPath: `${safeFileStem(res.corpus)}_${res.attr}_distribution.csv` }); if (path) exportReport(toast, log, "Exported distribution", invoke("export_table", { path, rows, columns: ["value", "hits", "tokens", "regions", "per_million"] })); }}>Export…</Button>
             </>
           }>
-          <div tabIndex={0} role="region" aria-label="Matches per metadata value" className="table-wrap" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
-            <table className="table">
+          <ScrollTable label="Matches per metadata value" max={560}>
               <thead><tr><th>{brownLike && byGenre ? "Genre category" : res.attr}</th><th className="num">Matches</th><th className="num"><button type="button" className="unit-toggle" onClick={units.toggle} title={`Size of each group. Click to switch to ${units.unit === "words" ? "tokens" : "words (estimated from the corpus's share of words)"}.`}>{units.unit === "words" && !units.denom(res.corpus).pending ? "≈ Words" : "Tokens"} in group</button></th><th style={{ width: "28%" }}>Rate</th><th className="num"><UnitLabel corpora={[res.corpus]} approx prefix="Per million" /></th></tr></thead>
               <tbody>
                 {rows.map((r, i) => {
@@ -475,8 +470,7 @@ function Distribution() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+            </ScrollTable>
         </Card>
       )}
     </div>

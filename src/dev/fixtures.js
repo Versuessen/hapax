@@ -299,7 +299,7 @@ const handlers = {
   interpret_search: ({ query, total }) => {
     const r = (total * 1e6) / corpora[query.corpus].tokens;
     const what = query.manual ? `CQP ${query.cqp}` : query.value ? `'${query.value}' by ${query.field}` : "every word";
-    return `Found ${total.toLocaleString("en-US")} matches for ${what}. Corpus-wide reference rate: ${r.toFixed(2)} matches per million indexed tokens. This counts written forms, not necessarily every grammatical form of the word. Next: read several examples, then use Count by annotation to see how they are used, or Combine searches to narrow them down.`;
+    return `Found ${total.toLocaleString("en-US")} matches for ${what}. Corpus-wide reference rate: ${r.toFixed(2)} matches per million indexed tokens. This counts written forms, not necessarily every grammatical form of the word. Next: read several examples, then use the Counts view to see how they are used, or Combine searches to narrow them down.`;
   },
   compile_workflow_plan: ({ plan }) => compilePlan(plan),
   explain_workflow_result: ({ plan, total }) => `Your workflow has ${plan.steps.length} steps and found ${total} matching spans in ${plan.corpus}. Set operations compare exact matched token ranges—not documents or sentences.`,

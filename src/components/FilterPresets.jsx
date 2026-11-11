@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Bookmark, ChevronDown, X } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke } from "../lib/ipc.js";
 import { describeFilter } from "../lib/filters.js";
-import { ICON } from "./ui.jsx";
+import { ICON, useDismiss } from "./ui.jsx";
 
 /**
  * Named sets of document filters, per corpus (metadata differs between
  * corpora), stored in preferences.json beside saved searches. Shared by every
- * FilterEditor: Search, Count by annotation and Compare.
+ * FilterEditor: the Search query panel, the Counts view and the Compare view.
  */
 const complete = (f) => !!describeFilter(f);
 const byName = (a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase());
@@ -23,14 +23,7 @@ export function FilterPresets({ corpus, filters, onChange }) {
   const usable = filters.filter(complete);
   const taken = list.some((p) => p.name === name.trim());
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e) => !ref.current?.contains(e.target) && setOpen(false);
-    const esc = (e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); trigger.current?.focus(); } };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", esc, true);
-    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc, true); };
-  }, [open]);
+  useDismiss(open, setOpen, ref, trigger);
 
   if (!list.length && !usable.length) return null; // nothing to apply and nothing to save
 

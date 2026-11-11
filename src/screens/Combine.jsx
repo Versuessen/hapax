@@ -1,24 +1,21 @@
-import { describeFilter, describeFilters, filtersOf } from "../lib/filters.js";
-import { FilterEditor } from "../components/FilterEditor.jsx";
-import { Flag } from "../components/Flag.jsx";
+import { describeFilters } from "../lib/filters.js";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { describeFollowers } from "../lib/sequence.js";
 import { TerminalBlock } from "../components/TerminalBlock.jsx";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDown, ArrowUp, Code2, Combine, Download, FileDown, Filter, FolderOpen, Lightbulb, NotebookPen, Play, Plus, Save, Search as SearchIcon, Shuffle, Trash2, Workflow as WorkflowIcon, Scale,
 } from "lucide-react";
 import { useApp, EMPTY_QUERY } from "../state/store.jsx";
 import { invoke, openDialog, saveDialog, JSON_FILTERS } from "../lib/ipc.js";
-import { Button, Card, Checkbox, Dialog, EmptyState, Field, ICON, Input, Notice, Segmented, Select, Chip } from "../components/ui.jsx";
-import { QueryBuilder, corpusOptions, fieldOptions, useCqpPreview } from "../components/QueryBuilder.jsx";
+import { Button, Card, Checkbox, Dialog, EmptyState, Field, ICON, Input, Notice, Segmented, Select, Chip, ScrollTable } from "../components/ui.jsx";
+import { QueryBuilder, corpusOptions, fieldOptions } from "../components/QueryBuilder.jsx";
 import { Kwic } from "../components/Kwic.jsx";
 import { BarCell, SERIES } from "../components/charts.jsx";
 import { exportReport } from "../lib/exportReport.js";
-import { perMillion, rate, safeFileStem, seconds, thousands } from "../lib/format.js";
-import { corpusColor, orderedCorpora, isSearchable } from "../nav.js";
+import { safeFileStem, seconds, thousands } from "../lib/format.js";
 import { hasQuery, queryLabel } from "../lib/query.js";
-import { Rate, Size, UnitLabel, useUnits } from "../components/Units.jsx";
+import { Rate, UnitLabel } from "../components/Units.jsx";
 
 const planKey = (w) => JSON.stringify({ c: w.corpus, s: w.steps });
 const KIND_ICON = { search: SearchIcon, refine: Filter, combine: Combine };
@@ -263,12 +260,10 @@ function Builder() {
           <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
             {groups ? (
               groups.length ? (
-                <div tabIndex={0} role="region" aria-label="Workflow counts" className="table-wrap" style={{ "--table-max": "520px" }}>
-                  <table className="table">
+                <ScrollTable label="Workflow counts" max={520} bordered={false}>
                     <thead><tr><th>Value</th><th>Meaning</th><th style={{ width: "26%" }}><span className="sr-only">Share</span></th><th className="num">Count</th></tr></thead>
                     <tbody>{groups.map((g, i) => (<tr key={g.value + i}><td className="mono">{g.value}</td><td className="muted">{g.meaning}</td><td><BarCell value={g.count} max={gmax} color={SERIES[i % SERIES.length]} /></td><td className="num">{thousands(g.count)}</td></tr>))}</tbody>
-                  </table>
-                </div>
+                  </ScrollTable>
               ) : <EmptyState title="No values">The workflow produced no matches to count.</EmptyState>
             ) : rows?.length ? (
               <Kwic rows={rows} offset={res.request.offset} />

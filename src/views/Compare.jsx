@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FileDown, Scale } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke, saveDialog } from "../lib/ipc.js";
-import { Button, Card, Notice, ScrollTable } from "../components/ui.jsx";
+import { Button, Card, Notice } from "../components/ui.jsx";
 import { BarCell } from "../components/charts.jsx";
 import { Flag } from "../components/Flag.jsx";
 import { FilterEditor } from "../components/FilterEditor.jsx";

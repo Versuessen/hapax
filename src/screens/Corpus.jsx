@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { Database, Filter, Play } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke } from "../lib/ipc.js";
-import { Button, Card, Chip, EmptyState, Field, Notice, Select } from "../components/ui.jsx";
+import { Button, Card, Chip, EmptyState, Field, Notice, Select, ScrollTable } from "../components/ui.jsx";
 import { BarCell } from "../components/charts.jsx";
-import { ExplainPanel } from "../views/Analyses.jsx";
 import { corpusColor, corpusFamily, orderedCorpora, isSearchable, varietyInfo } from "../nav.js";
 import { Flag } from "../components/Flag.jsx";
 import { compact, seconds, thousands } from "../lib/format.js";
@@ -94,8 +93,7 @@ function CorpusTable({ selected, onSelect }) {
   };
   return (
     <Card flush title={`${base.length} corpora`} sub={check.text} actions={check.action} style={{ marginBottom: 16 }}>
-      <div tabIndex={0} role="region" aria-label="Corpora" className="table-wrap corpus-table" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-        <table className="table">
+      <ScrollTable label="Corpora" className="corpus-table">
           <thead>
             <tr>
               {header("name")}
@@ -129,8 +127,7 @@ function CorpusTable({ selected, onSelect }) {
               );
             })}
           </tbody>
-        </table>
-      </div>
+        </ScrollTable>
     </Card>
   );
 }
@@ -191,16 +188,13 @@ export default function Corpus() {
 
         </div>
         <Card flush title="Structural attributes" sub="Regions per attribute (verified inventory)">
-          <div tabIndex={0} role="region" aria-label="Structural attributes" className="table-wrap" style={{ "--table-max": "640px", borderTop: "1px solid var(--border-subtle)" }}>
-            <table className="table">
+          <ScrollTable label="Structural attributes" max={640} after={!Object.keys(ci.structural).length && <EmptyState icon={Database} title="None" />}>
               <tbody>
                 {Object.entries(ci.structural).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
                   <tr key={k}><td className="mono">{k}</td><td className="num" style={{ color: v ? "var(--text-1)" : "var(--text-4)" }}>{thousands(v)}</td></tr>
                 ))}
               </tbody>
-            </table>
-            {!Object.keys(ci.structural).length && <EmptyState icon={Database} title="None" />}
-          </div>
+            </ScrollTable>
         </Card>
       </div>
       )}
@@ -220,8 +214,7 @@ export default function Corpus() {
 
           {values && values.corpus === name && (
             <Card flush title={<><strong>{thousands(values.data.groups.length)}</strong> values of {values.attr}</>} sub={`${seconds(values.elapsed)}${values.data.truncated ? " · first 1,000" : ""}`}>
-              <div tabIndex={0} role="region" aria-label="Metadata values" className="table-wrap" style={{ "--table-max": "480px", borderTop: "1px solid var(--border-subtle)" }}>
-                <table className="table">
+              <ScrollTable label="Metadata values" max={480}>
                   <thead><tr><th>Value</th><th className="num">Regions</th><th style={{ width: "24%" }}><span className="sr-only">Share</span></th><th className="num">Tokens</th><th><span className="sr-only">Use as filter</span></th></tr></thead>
                   <tbody>
                     {values.data.groups.map((g, i) => (
@@ -234,8 +227,7 @@ export default function Corpus() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </ScrollTable>
             </Card>
           )}
         </div>

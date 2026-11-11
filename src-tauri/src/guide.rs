@@ -377,7 +377,7 @@ pub fn build_recipe(input: &RecipeInput) -> AppResult<Recipe> {
             }
             base.meta_attr = "text_genre".into();
             base.meta_value = input.genre.trim().into();
-            note = "Restricts written-word matches to documents with the exact stored genre value. Use Corpora > Contents & metadata to list values rather than guessing them.".into();
+            note = "Restricts written-word matches to documents with the exact stored genre value. Use Corpora › Metadata to list values rather than guessing them.".into();
         }
         8 => {
             let adv = pattern_tag(corpus, "adverb").unwrap_or_default();

@@ -6,12 +6,12 @@ import {
 import { useApp, queryKey } from "../state/store.jsx";
 import { exportReport } from "../lib/exportReport.js";
 import { invoke, saveDialog } from "../lib/ipc.js";
-import { Button, Card, Dialog, EmptyState, Field, ICON, Input, Notice, Select, Spinner, ViewTabs } from "../components/ui.jsx";
+import { Button, Card, Dialog, EmptyState, Field, Input, Notice, Select, Spinner, ViewTabs } from "../components/ui.jsx";
 import { useUiState } from "../lib/uiState.js";
 import { QueryBuilder, useCqpPreview } from "../components/QueryBuilder.jsx";
 import { QueryPanel } from "../components/TerminalBlock.jsx";
 import { Kwic } from "../components/Kwic.jsx";
-import { perMillion, rate, safeFileStem, seconds, thousands, compact } from "../lib/format.js";
+import { safeFileStem, seconds, thousands } from "../lib/format.js";
 import { hasQuery, queryLabel } from "../lib/query.js";
 import { Rate, Size, UnitLabel } from "../components/Units.jsx";
 

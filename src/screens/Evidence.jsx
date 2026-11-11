@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FileDown, FolderOpen, NotebookPen, Save, Trash2 } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke, openDialog, saveDialog, JSON_FILTERS } from "../lib/ipc.js";
-import { Button, Card, EmptyState, Kbd, Segmented, Stat } from "../components/ui.jsx";
+import { Button, Card, EmptyState, Kbd, Segmented, Stat, ScrollTable } from "../components/ui.jsx";
 import { exportReport } from "../lib/exportReport.js";
 import { thousands } from "../lib/format.js";
 import { corpusColor } from "../nav.js";
@@ -144,8 +144,7 @@ export default function Evidence() {
             </div>
           )}
           {evidence.length ? (
-            <div ref={tableRef} tabIndex={0} role="region" aria-label="Evidence examples" className="table-wrap" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
-              <table className="table">
+            <ScrollTable ref={tableRef} label="Evidence examples" max={560}>
                 <thead><tr>
                   <th style={{ width: 36 }}><input type="checkbox" aria-label="Select all shown examples" checked={allShownChecked} onChange={toggleAll} /></th>
                   <th>Decision</th><th>Context</th><th>Corpus</th><th className="num">Token</th><th>Source</th>
@@ -167,8 +166,7 @@ export default function Evidence() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </ScrollTable>
           ) : (
             <EmptyState icon={NotebookPen} title="No examples collected" action={<Button variant="primary" onClick={() => setScreen("search/matches")}>Go to search</Button>}>
               Add a result page from Search (Add page to evidence, Ctrl+Shift+E) or a Combine sample. Then label each example Relevant, Irrelevant or Unsure, with a note. Nothing is stored on the server.

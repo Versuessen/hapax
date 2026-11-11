@@ -295,16 +295,18 @@ export function useDismiss(open, setOpen, ref, triggerRef) {
 
 /**
  * A result table that scrolls inside its card: keyboard-focusable region
- * with an accessible name and a maximum height.
+ * with an accessible name and a maximum height (`max`, px; none = no limit).
+ * `after` renders below the table inside the region (empty states).
  */
-export function ScrollTable({ label, max = 520, children, bordered = true, style }) {
+export const ScrollTable = forwardRef(function ScrollTable({ label, max, children, bordered = true, className = "", after = null, style }, ref) {
   return (
-    <div tabIndex={0} role="region" aria-label={label} className="table-wrap table-scroll"
-      style={{ "--table-max": `${max}px`, ...(bordered ? { borderTop: "1px solid var(--border-subtle)" } : {}), ...style }}>
+    <div ref={ref} tabIndex={0} role="region" aria-label={label} className={`table-wrap table-scroll ${className}`.trim()}
+      style={{ ...(max ? { "--table-max": `${max}px` } : {}), ...(bordered ? { borderTop: "1px solid var(--border-subtle)" } : {}), ...style }}>
       <table className="table">{children}</table>
+      {after}
     </div>
   );
-}
+});
 
 /**
  * Views of one workspace (Search result views, Corpora views): a tablist that

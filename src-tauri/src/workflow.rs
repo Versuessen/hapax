@@ -297,14 +297,14 @@ pub fn interpretation(query: &QuerySpec, total: u64, tokens: u64) -> String {
     } };
     let caveat = if (!query.meta_attr.is_empty() && !query.meta_value.is_empty()) || query.filters.iter().any(|f| !f.attr.is_empty()) {
         "A metadata filter is active: the rate below uses the entire corpus denominator and must NOT be \
-         treated as a within-group frequency. Load metadata sizes under Corpora > Contents & metadata (or use Spread across texts) before making \
+         treated as a within-group frequency. Load metadata sizes under Corpora › Metadata (or use the Spread view) before making \
          subgroup comparisons. "
     } else {
         ""
     };
     format!(
         "Found {} matches for {}{}. Corpus-wide reference rate: {} matches per million indexed tokens. \
-         {caveat}{hint} Next: read several examples, then use Count by annotation to see how they are used, or \
+         {caveat}{hint} Next: read several examples, then use the Counts view to see how they are used, or \
          Combine searches to narrow them down.",
         thousands(total),
         crate::query::describe(query),

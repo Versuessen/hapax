@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FileDown, Network, Play } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke, saveDialog } from "../lib/ipc.js";
-import { Button, Card, Chip, EmptyState, Field, Input, Notice } from "../components/ui.jsx";
+import { Button, Card, Chip, EmptyState, Field, Input, Notice, ScrollTable } from "../components/ui.jsx";
 import { exportReport } from "../lib/exportReport.js";
 import { useRunView } from "./Analyses.jsx";
 import { seconds, thousands } from "../lib/format.js";
@@ -134,8 +134,7 @@ export function StructureView() {
               {d.undefined > 0 && <div style={{ marginTop: 12 }}><Notice tone="info">Dashed or missing arcs are <code>__UNDEF__</code> in the corpus. They are kept undefined, never guessed.</Notice></div>}
             </Card>
             <Card flush title="Token table" sub="Text alternative to the diagram">
-              <div tabIndex={0} role="region" aria-label="Sentence tokens" className="table-wrap" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-                <table className="table">
+              <ScrollTable label="Sentence tokens">
                   <thead><tr><th className="num">id</th><th>Word</th><th>POS</th><th>Lemma</th><th className="num">Head</th><th>Relation</th><th className="num">Position</th></tr></thead>
                   <tbody>
                     {res.data.tokens.map((t, i) => (
@@ -145,8 +144,7 @@ export function StructureView() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </ScrollTable>
             </Card>
           </>
         ) : (

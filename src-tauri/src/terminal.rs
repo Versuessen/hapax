@@ -125,7 +125,7 @@ fn cqp_body(p: &Value) -> Option<String> {
             ))
         }
         "distribution" => Some(format!(
-            "{}\ngroup Hits match {};   # hits per value; divide by each value's token count (Corpora > Contents & metadata) for rates",
+            "{}\ngroup Hits match {};   # hits per value; divide by each value's token count (Corpora › Metadata) for rates",
             query(s(p, "corpus"), s(p, "expression"), "Hits"),
             s(p, "attribute")
         )),

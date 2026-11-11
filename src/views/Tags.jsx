@@ -50,8 +50,7 @@ export function TagsView({ corpus }) {
         </Card>
         {res && (
           <Card flush title={<><strong>{thousands(res.data.groups.length)}</strong> codes</>} sub={`${corpus} · ${field}${res.data.truncated ? " · first 2,500" : ""}`}>
-            <div tabIndex={0} role="region" aria-label="Annotation codes" className="table-wrap" style={{ "--table-max": "520px", borderTop: "1px solid var(--border-subtle)" }}>
-              <table className="table">
+            <ScrollTable label="Annotation codes" max={520}>
                 <thead><tr><th>Code</th><th>Meaning</th><th style={{ width: "22%" }}><span className="sr-only">Share</span></th><th className="num">Tokens</th></tr></thead>
                 <tbody>
                   {res.data.groups.map((g, i) => (
@@ -60,8 +59,7 @@ export function TagsView({ corpus }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </ScrollTable>
           </Card>
         )}
       </div>
@@ -75,8 +73,7 @@ export function TagsView({ corpus }) {
               <Input id="gl-q" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter codes, e.g. VVG or adjective" style={{ paddingLeft: 36 }} />
             </div>
           </div>
-          <div tabIndex={0} role="region" aria-label="Codebook" className="table-wrap" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
-            <table className="table">
+          <ScrollTable label="Codebook" max={560} after={!gl.length && <EmptyState icon={BookOpen} title="No codes match">Try a shorter filter.</EmptyState>}>
               <tbody>
                 {gl.slice(0, 400).map((g, i) => (
                   <tr key={g.category + g.code + i} data-clickable={g.category === "POS"} onClick={() => g.category === "POS" && (setField("pos"), setPick(g.code))} title={g.note}>
@@ -86,9 +83,7 @@ export function TagsView({ corpus }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
-            {!gl.length && <EmptyState icon={BookOpen} title="No codes match">Try a shorter filter.</EmptyState>}
-          </div>
+            </ScrollTable>
         </Card>
       </div>
     </div>
