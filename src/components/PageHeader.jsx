@@ -1,96 +1,54 @@
-import { useState } from "react";
-import { ChevronDown, Info } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import { useApp } from "../state/store.jsx";
-import { NAV, canonicalScreen } from "../nav.js";
 import { GUIDES } from "../guides.js";
-import { ICON, Tabs } from "./ui.jsx";
+import { ICON } from "./ui.jsx";
 
-const KEY = (id) => `hapax.guide.${id}`;
-/** Set once the user has hidden any guide: from then on, unvisited guides start closed too. */
-const LEARNED = "hapax.guide.__learned";
-/** Screens whose content already is documentation get no guide panel. */
-const NO_GUIDE = new Set(["help"]);
-
-function initiallyOpen(id) {
-  try {
-    const v = localStorage.getItem(KEY(id));
-    if (v != null) return v === "1";
-    return localStorage.getItem(LEARNED) !== "1"; // beginners: open; anyone who has closed one: closed
-  } catch {
-    return true;
-  }
+/**
+ * Short page context ("BNC · 112M tokens", "unsaved changes") shown beside
+ * the page title in the top bar. Pages render it where they have the data;
+ * it is portalled into the top bar so there is one title, not three.
+ */
+export function PageHeader({ aside }) {
+  const [slot, setSlot] = useState(null);
+  useEffect(() => setSlot(document.getElementById("page-context")), []);
+  if (!slot || aside == null || aside === "") return null;
+  return createPortal(<span className="topbar__context">{aside}</span>, slot);
 }
 
-/** Reopen every guide (used by Methods & help). */
+/** Older builds remembered guides per page; clearing those keys and opening the guide is enough now. */
 export function resetGuides() {
   try {
     for (const k of Object.keys(localStorage)) if (k.startsWith("hapax.guide.")) localStorage.removeItem(k);
   } catch { /* convenience only */ }
 }
 
-/**
- * Collapsible "How this page works" panel. The purpose line is always visible;
- * the steps open on a first visit until the user hides any guide once, after
- * which guides stay closed unless opened — beginners get the walkthrough,
- * repeat users get the space back.
- */
+/** The page guide (purpose, steps, notes), opened from the top bar's Guide button. */
 export function Guide({ id }) {
+  const { guideOpen, setGuideOpen } = useApp();
   const g = GUIDES[id];
-  const [open, setOpen] = useState(() => initiallyOpen(id));
-  if (!g || NO_GUIDE.has(id)) return null;
-  const toggle = () => {
-    setOpen((o) => {
-      try {
-        localStorage.setItem(KEY(id), o ? "0" : "1");
-        if (o) localStorage.setItem(LEARNED, "1");
-      } catch { /* convenience only */ }
-      return !o;
-    });
-  };
-  const bodyId = `guide-${id.replace("/", "-")}`;
+  if (!g || !guideOpen) return null;
   return (
-    <section className={`guide${open ? " is-open" : ""}`} aria-label={`How to use ${g.title}`}>
-      <button type="button" className="guide__toggle" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
-        <Info {...ICON} size={15} aria-hidden="true" />
+    <section className="guide is-open" id="page-guide" aria-label={`How to use ${g.title}`}>
+      <div className="guide__head">
         <span className="guide__purpose">{g.purpose}</span>
-        <span className="guide__hint">{open ? "Hide guide" : "How it works"}</span>
-        <ChevronDown {...ICON} size={14} className="guide__chev" aria-hidden="true" />
-      </button>
-      {open && (
-        <div className="guide__body" id={bodyId}>
-          <div>
-            <h3 className="guide__h">Steps</h3>
-            <ol className="guide__steps">{g.steps.map((s) => <li key={s}>{s}</li>)}</ol>
-          </div>
-          {g.notes.length > 0 && (
-            <div>
-              <h3 className="guide__h">Good to know</h3>
-              <ul className="guide__notes">{g.notes.map((s) => <li key={s}>{s}</li>)}</ul>
-            </div>
-          )}
+        <button type="button" className="btn btn--ghost btn--icon" aria-label="Close guide" title="Close guide" onClick={() => setGuideOpen(false)}>
+          <X {...ICON} size={14} />
+        </button>
+      </div>
+      <div className="guide__body">
+        <div>
+          <h3 className="guide__h">Steps</h3>
+          <ol className="guide__steps">{g.steps.map((s) => <li key={s}>{s}</li>)}</ol>
         </div>
-      )}
+        {g.notes.length > 0 && (
+          <div>
+            <h3 className="guide__h">Good to know</h3>
+            <ul className="guide__notes">{g.notes.map((s) => <li key={s}>{s}</li>)}</ul>
+          </div>
+        )}
+      </div>
     </section>
-  );
-}
-
-/**
- * Page title + section tabs + guide, identical on every screen.
- * `aside` is a short muted qualifier (corpus name, count, state).
- */
-export function PageHeader({ aside, title }) {
-  const { screen, setScreen } = useApp();
-  const id = canonicalScreen(screen);
-  const group = NAV.find((n) => n.children?.some((c) => c.id === id));
-  const label = title || GUIDES[id]?.title || NAV.find((n) => n.id === id)?.label || "";
-  return (
-    <>
-      <h2 className="page-title">
-        {label}
-        {aside != null && aside !== "" && <span className="page-title__muted">{aside}</span>}
-      </h2>
-      {group && <Tabs value={id} onChange={setScreen} label={group.label} options={group.children.map((c) => [c.id, c.label])} />}
-      <Guide key={id} id={id} />
-    </>
   );
 }

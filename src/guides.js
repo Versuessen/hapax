@@ -22,7 +22,7 @@ export const GUIDES = {
     ],
   },
 
-  "find/search": {
+  "search/matches": {
     title: "Search",
     purpose: "Find every occurrence of a word, tag or phrase in one corpus and read each one in context.",
     steps: [
@@ -42,33 +42,9 @@ export const GUIDES = {
     ],
   },
 
-  "find/guided": {
-    title: "Guided search",
-    purpose: "Build a search from a plain-language question when you do not know the corpus's tags or CQP.",
-    steps: [
-      "Choose a question, for example which adjectives come before a noun.",
-      "Fill in the corpus and words. The right-hand panel states in plain words what will be searched.",
-      "Select Use in Search to review and run it, or Open in Combine searches when the question needs several steps.",
-    ],
-    notes: [
-      "Categories such as “noun” are translated into each corpus's own tagset, so one question works across corpora with different annotation.",
-    ],
-  },
 
-  "find/saved": {
-    title: "Saved & recent",
-    purpose: "Rerun or edit searches you saved or ran recently.",
-    steps: [
-      "Select Run to repeat a search with its original settings, or Edit to load it into Search first.",
-      "To save a new one, use Save on the Search screen (Ctrl+S).",
-    ],
-    notes: [
-      "Only the search definition is stored, on this computer. Results are recomputed on the server each time.",
-      "Recent searches keeps the last 20 searches you ran, newest first.",
-    ],
-  },
 
-  "analyse/counts": {
+  "search/counts": {
     title: "Count by annotation",
     purpose: "Break all matches of the current search down by an annotation — which word forms, parts of speech or whole phrases occur — in one corpus or several side by side.",
     steps: [
@@ -85,7 +61,7 @@ export const GUIDES = {
     ],
   },
 
-  "analyse/nearby": {
+  "search/nearby": {
     title: "Nearby words",
     purpose: "See which words occur up to four positions to the left and right of your matches.",
     steps: [
@@ -99,7 +75,7 @@ export const GUIDES = {
     ],
   },
 
-  "analyse/spread": {
+  "search/spread": {
     title: "Spread across texts",
     purpose: "Find out whether matches are spread evenly or concentrated in particular genres, periods, speakers or files.",
     steps: [
@@ -115,7 +91,7 @@ export const GUIDES = {
     ],
   },
 
-  "analyse/compare": {
+  "search/compare": {
     title: "Compare corpora",
     purpose: "Run the same search in two to six corpora — or in filtered parts of them — and compare how often it occurs.",
     steps: [
@@ -131,7 +107,7 @@ export const GUIDES = {
     ],
   },
 
-  "analyse/syntax": {
+  "search/structure": {
     title: "Sentence structure",
     purpose: "View the dependency relations of one EFCAM sentence as arcs and as a table.",
     steps: [
@@ -159,7 +135,7 @@ export const GUIDES = {
     ],
   },
 
-  "corpora/details": {
+  "corpora/about": {
     title: "Contents & metadata",
     purpose: "Check what a corpus contains before you search it: its size, its annotation and the values of its metadata.",
     steps: [
@@ -211,3 +187,4 @@ export const GUIDES = {
     notes: [],
   },
 };
+GUIDES["corpora/metadata"] = GUIDES["corpora/about"];

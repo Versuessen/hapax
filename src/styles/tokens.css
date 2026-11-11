@@ -42,11 +42,14 @@
   --space-7: 32px;  /* content padding, section gaps    */
   --space-8: 40px;
   --space-9: 48px;
-  --content-pad: 30px; /* measured 29.5–31 px from sidebar border to card edge */
+  --content-pad: 24px; /* overhaul: was 30px (reference); denser work tool, same 8-px rhythm */
+  --panel-w: 380px;    /* Search query panel: Find by + Value side by side */
+  --space-section: 16px; /* one gap between workspace blocks */
 
   /* ---- geometry -------------------------------------------------------- */
-  --sidebar-w: 280px;
-  --header-h: 64px;
+  --sidebar-w: 224px;   /* overhaul: was 280px; no corpus list in the sidebar any more */
+  --header-h: 52px;    /* overhaul: was 64px; the title lives here now */
+  --fs-title-page: 17px; /* page title in the top bar (replaces the 34px in-page title) */
   --nav-item-h: 36px;     /* annotated "36px" */
   --nav-gap: 3px;         /* 39px pitch measured (103 video px / 2.64) */
   --control-h: 40px;      /* search field */

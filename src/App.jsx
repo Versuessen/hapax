@@ -1,6 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { AppProvider, useApp } from "./state/store.jsx";
 import { Sidebar, useNarrow } from "./components/Sidebar.jsx";
+import { Guide } from "./components/PageHeader.jsx";
+import { ViewTabs } from "./components/ui.jsx";
+import { NAV } from "./nav.js";
 import { Topbar } from "./components/Topbar.jsx";
 import { CommandPalette, ConnectDialog, HostKeyDialog, Toasts } from "./components/Dialogs.jsx";
 import { Spinner } from "./components/ui.jsx";
@@ -21,22 +24,28 @@ const Learn = lazy(() => import("./screens/Learn.jsx"));
 const Help = lazy(() => import("./screens/Help.jsx"));
 
 function Screen({ id }) {
-  switch (id) {
-    case "find/search": return <Search />;
-    case "find/guided": return <Learn />;
-    case "find/saved": return <Saved />;
-    case "analyse/counts": return <Analysis sub="counts" />;
-    case "analyse/nearby": return <Analysis sub="nearby" />;
-    case "analyse/spread": return <Analysis sub="spread" />;
-    case "analyse/compare": return <Workflows sub="compare" />;
-    case "analyse/syntax": return <Syntax />;
+  const [head, view] = id.split("/");
+  switch (head) {
+    case "search":
+      if (view === "matches") return <Search />;
+      if (view === "compare") return <Workflows sub="compare" />;
+      if (view === "structure") return <Syntax />;
+      return <Analysis sub={view} />;
+    case "corpora": return view === "tags" ? <Analysis sub="tags" /> : <Corpus />;
     case "combine": return <Workflows sub="builder" />;
-    case "corpora/details": return <Corpus />;
-    case "corpora/tags": return <Analysis sub="tags" />;
     case "evidence": return <Evidence />;
     case "help": return <Help />;
     default: return <Overview />;
   }
+}
+
+/** Interim: view tabs for Search and Corpora until each page renders its own. */
+function WorkspaceTabs({ screen }) {
+  const { setScreen } = useApp();
+  const [head, view] = screen.split("/");
+  const n = NAV.find((x) => x.id === head);
+  if (!n?.views) return null;
+  return <div className="page" style={{ paddingBottom: 0 }}><ViewTabs base={head} views={n.views} current={view} onChange={setScreen} label={`${n.label} views`} /></div>;
 }
 
 function useShortcuts() {
@@ -66,16 +75,16 @@ function useShortcuts() {
         }
       } else if (isMod(e) && e.key === "Enter") {
         e.preventDefault();
-        if (screen !== "find/search") setScreen("search");
+        if (screen !== "search/matches") setScreen("search/matches");
         setTimeout(() => window.dispatchEvent(new CustomEvent("cqp:search")), 0);
       } else if (isMod(e) && k === "l") {
         e.preventDefault();
-        if (screen !== "find/search") setScreen("search");
+        if (!screen.startsWith("search")) setScreen("search");
         setTimeout(() => document.querySelector("[data-search-term]")?.focus(), 30);
-      } else if (isMod(e) && k === "s" && screen === "find/search") {
+      } else if (isMod(e) && k === "s" && screen.startsWith("search")) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("cqp:save"));
-      } else if (isMod(e) && k === "e" && screen === "find/search") {
+      } else if (isMod(e) && k === "e" && screen === "search/matches") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("cqp:export"));
       }
@@ -86,7 +95,7 @@ function useShortcuts() {
 }
 
 function Shell() {
-  const { info, screen, query } = useApp();
+  const { info, screen, query, guideOpen } = useApp();
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem("cqp.sidebar") === "collapsed";
@@ -121,10 +130,12 @@ function Shell() {
       <Sidebar collapsed={(collapsed || narrow) && !drawer} narrow={narrow} drawer={drawer} onToggle={narrow ? () => setDrawer((d) => !d) : toggle} />
       {drawer && <div className="scrim" aria-hidden="true" onClick={() => setDrawer(false)} />}
       <main className="main">
-        <Topbar corpusSwitcher={collapsed || narrow} />
+        <Topbar />
         <div className="content" id="content" tabIndex={-1}>
           {info ? (
             <Suspense fallback={<div className="page"><Spinner /></div>}>
+              <WorkspaceTabs screen={screen} />
+              {guideOpen && <div className="page page--guide"><Guide id={screen} /></div>}
               <Screen id={screen} key={screen.split("/")[0]} />
             </Suspense>
           ) : (

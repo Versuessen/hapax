@@ -190,6 +190,8 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text-1); }
 .status-pill { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: transparent; color: var(--text-2); font-size: var(--fs-small); white-space: nowrap; }
 .status-pill:hover { background: var(--surface-hover); color: var(--text-1); }
 .status-pill .dot { width: 7px; height: 7px; }
+.status-pill--warn { border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); color: var(--text-1); }
+.status-pill--warn svg { color: var(--warning); }
 .status-pill .mono { font-size: var(--fs-mono); color: var(--text-3); }
 
 /* ===== Tables =========================================================== */
@@ -520,7 +522,9 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text-1); }
 .guide__hint { flex: none; font-family: var(--font-mono); font-size: var(--fs-mono); color: var(--text-3); }
 .guide__chev { flex: none; color: var(--text-3); transition: transform var(--dur); }
 .guide.is-open .guide__chev { transform: rotate(180deg); }
-.guide__body { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; padding: 4px 16px 16px 39px; }
+.guide { margin: 0 0 var(--space-4); }
+.guide__head { display: flex; align-items: flex-start; gap: 10px; padding: 10px 8px 4px 16px; font-size: var(--fs-small); line-height: 1.45; }
+.guide__body { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; padding: 4px 16px 16px 16px; }
 .guide__h { margin: 0 0 8px; font: 500 var(--fs-micro)/1 var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); }
 .guide__steps, .guide__notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-small); line-height: 1.55; color: var(--text-2); max-width: 70ch; }
 .guide__steps li::marker { font-family: var(--font-mono); font-size: var(--fs-mono); color: var(--text-3); }

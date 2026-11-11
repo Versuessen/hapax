@@ -1,39 +1,32 @@
 import {
-  ChartLine, CircleHelp, Database, LayoutGrid, NotebookPen, TextSearch, Workflow,
+  CircleHelp, Database, LayoutGrid, NotebookPen, TextSearch, Workflow,
 } from "lucide-react";
+import { ui } from "./lib/uiState.js";
 
 /**
- * Navigation is organised by task, in the order research usually happens:
- * find examples -> analyse them -> combine searches -> check the corpus -> keep evidence.
+ * Six destinations, in the order research usually happens. Search is one
+ * workspace whose result views replace the former Analyse pages; Corpora has
+ * three views. Screen ids are "search/<view>" and "corpora/<view>".
  */
+export const SEARCH_VIEWS = [
+  { id: "matches", label: "Matches" },
+  { id: "counts", label: "Counts" },
+  { id: "nearby", label: "Nearby" },
+  { id: "spread", label: "Spread" },
+  { id: "compare", label: "Compare" },
+  { id: "structure", label: "Structure" },
+];
+export const CORPORA_VIEWS = [
+  { id: "about", label: "About" },
+  { id: "metadata", label: "Metadata" },
+  { id: "tags", label: "Tags" },
+];
+
 export const NAV = [
   { id: "home", label: "Home", icon: LayoutGrid },
-  {
-    id: "find", label: "Find examples", icon: TextSearch,
-    children: [
-      { id: "find/search", label: "Search" },
-      { id: "find/guided", label: "Guided search" },
-      { id: "find/saved", label: "Saved & recent", meta: "saved" },
-    ],
-  },
-  {
-    id: "analyse", label: "Analyse results", icon: ChartLine,
-    children: [
-      { id: "analyse/counts", label: "Count by annotation" },
-      { id: "analyse/nearby", label: "Nearby words" },
-      { id: "analyse/spread", label: "Spread across texts" },
-      { id: "analyse/compare", label: "Compare corpora" },
-      { id: "analyse/syntax", label: "Sentence structure" },
-    ],
-  },
+  { id: "search", label: "Search", icon: TextSearch, views: SEARCH_VIEWS },
   { id: "combine", label: "Combine searches", icon: Workflow },
-  {
-    id: "corpora", label: "Corpora", icon: Database,
-    children: [
-      { id: "corpora/details", label: "Contents & metadata" },
-      { id: "corpora/tags", label: "Tag reference" },
-    ],
-  },
+  { id: "corpora", label: "Corpora", icon: Database, views: CORPORA_VIEWS },
   { id: "evidence", label: "Evidence notebook", icon: NotebookPen, meta: "evidence" },
   { id: "help", label: "Methods & help", icon: CircleHelp },
 ];
@@ -41,39 +34,60 @@ export const NAV = [
 /** Older screen ids (links, saved state, in-app jumps) -> current ids. */
 const ALIASES = {
   overview: "home",
-  search: "find/search",
-  learn: "find/guided",
-  saved: "find/saved",
-  find: "find/search",
-  analysis: "analyse/counts",
-  "analysis/frequencies": "analyse/counts",
-  "analysis/collocates": "analyse/nearby",
-  "analysis/distribution": "analyse/spread",
+  saved: "home",
+  "find/saved": "home",
+  find: "search/matches",
+  "find/search": "search/matches",
+  learn: "search/matches",
+  "find/guided": "search/matches",
+  analysis: "search/counts",
+  analyse: "search/counts",
+  "analysis/frequencies": "search/counts",
+  "analyse/counts": "search/counts",
+  "analysis/collocates": "search/nearby",
+  "analyse/nearby": "search/nearby",
+  "analysis/distribution": "search/spread",
+  "analyse/spread": "search/spread",
+  "workflows/compare": "search/compare",
+  "analyse/compare": "search/compare",
+  syntax: "search/structure",
+  "analyse/syntax": "search/structure",
   "analysis/codes": "corpora/tags",
-  analyse: "analyse/counts",
+  corpus: "corpora",
+  "corpora/details": "corpora/about",
   workflows: "combine",
   "workflows/builder": "combine",
-  "workflows/compare": "analyse/compare",
-  syntax: "analyse/syntax",
-  corpus: "corpora/details",
-  corpora: "corpora/details",
 };
 
+/** Guided search lives in the query panel now; these ids open it there. */
+export const ASK_IDS = new Set(["learn", "find/guided"]);
+
+/**
+ * Current id for any id. A bare workspace id ("search", "corpora") opens the
+ * view used last there.
+ */
 export function canonicalScreen(id) {
-  return ALIASES[id] || id || "home";
+  const x = ALIASES[id] || id || "home";
+  const n = NAV.find((v) => v.id === x);
+  if (n?.views) {
+    const last = ui.get(`view.${n.id}`);
+    return `${n.id}/${n.views.some((v) => v.id === last) ? last : n.views[0].id}`;
+  }
+  const [head, view] = x.split("/");
+  const parent = NAV.find((v) => v.id === head);
+  if (!parent) return "home";
+  if (parent.views && !parent.views.some((v) => v.id === view)) return `${head}/${parent.views[0].id}`;
+  return parent.views ? x : head;
 }
 
-/** Flat list in Alt+1…7 order (first child of each group). */
-export const SCREENS = NAV.map((n) => (n.children ? n.children[0].id : n.id));
+/** Alt+1…6 order. */
+export const SCREENS = NAV.map((n) => n.id);
 
 export function findNav(screen) {
   const id = canonicalScreen(screen);
-  for (const n of NAV) {
-    if (n.id === id) return { item: n };
-    const c = n.children?.find((x) => x.id === id);
-    if (c) return { item: n, child: c };
-  }
-  return { item: NAV[0] };
+  const [head, view] = id.split("/");
+  const item = NAV.find((n) => n.id === head) || NAV[0];
+  return { item, view: item.views?.find((v) => v.id === view) || null };
 }
 
 /**

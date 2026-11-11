@@ -269,3 +269,65 @@ export function Dialog({ open, onClose, title, text, children, footer, wide, cla
     document.body
   );
 }
+
+/**
+ * Closes a popup on an outside click or Escape; Escape returns focus to the
+ * trigger. The one implementation for menus, pickers and suggestion lists.
+ */
+export function useDismiss(open, setOpen, ref, triggerRef) {
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => !ref.current?.contains(e.target) && setOpen(false);
+    const esc = (e) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      setOpen(false);
+      triggerRef?.current?.focus();
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc, true);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc, true);
+    };
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/**
+ * A result table that scrolls inside its card: keyboard-focusable region
+ * with an accessible name and a maximum height.
+ */
+export function ScrollTable({ label, max = 520, children, bordered = true, style }) {
+  return (
+    <div tabIndex={0} role="region" aria-label={label} className="table-wrap table-scroll"
+      style={{ "--table-max": `${max}px`, ...(bordered ? { borderTop: "1px solid var(--border-subtle)" } : {}), ...style }}>
+      <table className="table">{children}</table>
+    </div>
+  );
+}
+
+/**
+ * Views of one workspace (Search result views, Corpora views): a tablist that
+ * switches screen ids, with the shortcut shown in each tab's title.
+ */
+export function ViewTabs({ base, views, current, onChange, label, keyHint = true }) {
+  const ref = useRef(null);
+  const onKey = (e) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const i = views.findIndex((v) => v.id === current);
+    const n = e.key === "Home" ? 0 : e.key === "End" ? views.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + views.length) % views.length;
+    onChange(`${base}/${views[n].id}`);
+    setTimeout(() => ref.current?.querySelector('[aria-selected="true"]')?.focus(), 0);
+  };
+  return (
+    <div className="tabs view-tabs" role="tablist" aria-label={label} ref={ref} onKeyDown={onKey}>
+      {views.map((v, i) => (
+        <button key={v.id} role="tab" type="button" id={`tab-${base}-${v.id}`} aria-selected={current === v.id} tabIndex={current === v.id ? 0 : -1}
+          title={keyHint ? `${v.label} (Ctrl+${i + 1})` : v.label} onClick={() => onChange(`${base}/${v.id}`)}>
+          {v.label}{v.badge != null && <span className="view-tabs__badge">{v.badge}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}

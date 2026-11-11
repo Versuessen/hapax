@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { invoke, listen } from "../lib/ipc.js";
 import { useTheme } from "../lib/theme.js";
-import { canonicalScreen } from "../nav.js";
+import { ASK_IDS, canonicalScreen } from "../nav.js";
+import { ui } from "../lib/uiState.js";
 
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
@@ -57,9 +58,23 @@ export function AppProvider({ children }) {
   const [busy, setBusy] = useState(null); // { label, startedAt }
   const [lastRun, setLastRun] = useState(null); // { label, elapsed, cached }
   const [toasts, setToasts] = useState([]);
-  const [screen, setScreenRaw] = useState("home");
-  // Accept older screen ids everywhere (in-app jumps, palette, saved links).
-  const setScreen = useCallback((id) => setScreenRaw(canonicalScreen(typeof id === "function" ? id(screen) : id)), [screen]);
+  // Start where the user left off (per viewer); older ids are accepted everywhere.
+  const [screen, setScreenRaw] = useState(() => canonicalScreen(ui.get("screen", "home")));
+  // Query panel shows "Ask a question" (the former Guided search page).
+  const [asking, setAsking] = useState(false);
+  const setScreen = useCallback((id) => {
+    const raw = typeof id === "function" ? id(screen) : id;
+    if (ASK_IDS.has(raw)) setAsking(true);
+    setScreenRaw(canonicalScreen(raw));
+  }, [screen]);
+  useEffect(() => {
+    ui.set("screen", screen);
+    const [head, view] = screen.split("/");
+    if (view) ui.set(`view.${head}`, view);
+  }, [screen]);
+  // Page guides: closed by default, opened from the top bar.
+  const [guideOpen, setGuideOpenRaw] = useState(() => ui.get("guide", false));
+  const setGuideOpen = useCallback((v) => setGuideOpenRaw((cur) => { const n = typeof v === "function" ? v(cur) : v; ui.set("guide", n); return n; }), []);
   // Dev builds only: lets UI tests jump straight to a screen.
   if (import.meta.env.DEV && typeof window !== "undefined") window.__hapaxGo = setScreen;
   const [dialog, setDialog] = useState(null); // "connect" | "palette" | null
@@ -361,10 +376,10 @@ export function AppProvider({ children }) {
       consoleLog, consoleOpen, setConsoleOpen, clearConsole,
       query, setQuery, search, setSearch, analysis, setAnalysis,
       evidence, setEvidence, evidenceDirty, setEvidenceDirty, workflow, setWorkflow,
-      unit, toggleUnit, wordsOf, needWords,
+      unit, toggleUnit, wordsOf, needWords, asking, setAsking, guideOpen, setGuideOpen,
     }),
     [info, prefs, connection, engine, busy, lastRun, toasts, toast, dismissToast, screen, dialog, hostKey, answerHostKey, theme,
-     run, cancel, connect, disconnect, corpusInfo, activity, log, recent, remember, corpusCheck, discover, consoleLog, consoleOpen, setConsoleOpen, clearConsole, query, search, analysis, evidence, evidenceDirty, workflow, pending, unit, toggleUnit, wordsOf, needWords]
+     run, cancel, connect, disconnect, corpusInfo, activity, log, recent, remember, corpusCheck, discover, consoleLog, consoleOpen, setConsoleOpen, clearConsole, query, search, analysis, evidence, evidenceDirty, workflow, pending, unit, toggleUnit, wordsOf, needWords, asking, guideOpen, setGuideOpen]
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
