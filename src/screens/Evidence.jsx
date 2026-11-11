@@ -180,7 +180,7 @@ export default function Evidence() {
               actions={<Button variant="ghost" icon={Trash2} onClick={() => removeMany(new Set([sel]))} aria-label="Remove this example" title="Remove (can be undone)" />}>
               <div className="stack" style={{ gap: 14 }}>
                 <p style={{ fontSize: 15, lineHeight: 1.7, color: "var(--text-2)", margin: 0 }}>{cur.left} <mark className="kwic__match">{cur.text}</mark> {cur.right}</p>
-                <Segmented value={cur.decision} onChange={mark} label="Decision" options={DECISIONS.map((d) => [d, d])} />
+                <Segmented small value={cur.decision} onChange={mark} label="Decision" options={DECISIONS.map((d) => [d, d])} />
                 <label className="sr-only" htmlFor="ev-note">Research note</label>
                 <textarea id="ev-note" className="input" rows={4} value={note} placeholder="Research note — why is this (not) an instance?" maxLength={4000} onChange={(e) => setNote(e.target.value)} onBlur={() => note !== cur.note && patchMany(new Set([sel]), { note })} />
                 <div className="muted" style={{ fontSize: "var(--fs-mono)" }}>

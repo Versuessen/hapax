@@ -700,8 +700,10 @@ th.num .th-sort { flex-direction: row-reverse; }
 /* ===== Evidence: table beside the review panel ============================ */
 .evidence-layout { display: grid; gap: var(--space-section); grid-template-columns: minmax(0, 1fr); align-items: start; }
 @container page (min-width: 1100px) {
-  .evidence-layout { grid-template-columns: minmax(0, 1fr) 360px; }
+  .evidence-layout { grid-template-columns: minmax(0, 1fr) 380px; }
   .evidence-layout__review { position: sticky; top: 0; }
 }
 .batch-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 8px 16px 8px 24px; border-top: 1px solid var(--border-subtle); background: var(--surface-2); font-size: var(--fs-small); }
 .batch-bar .btn .dot { width: 7px; height: 7px; }
+
+.nav-item__dirty { display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--warning); vertical-align: middle; }

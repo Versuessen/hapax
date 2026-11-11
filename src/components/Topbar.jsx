@@ -130,7 +130,7 @@ function BusyIndicator() {
   }
   if (!lastRun) return null;
   return (
-    <span className="mono topbar__hide-narrow" style={{ color: "var(--text-3)", fontSize: "var(--fs-mono)" }} title="Client wall-clock time: SSH round trip, remote execution and parsing — not backend-only speed">
+    <span className="mono topbar__hide-wide" style={{ color: "var(--text-3)", fontSize: "var(--fs-mono)", whiteSpace: "nowrap" }} title="Client wall-clock time: SSH round trip, remote execution and parsing — not backend-only speed">
       {seconds(lastRun.elapsed)} · {lastRun.cached ? "cached" : "SSH"}
     </span>
   );

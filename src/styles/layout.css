@@ -141,6 +141,7 @@
 .topbar__guide:hover, .topbar__guide[aria-expanded="true"] { color: var(--text-1); background: var(--surface-hover); }
 .topbar__busy { color: var(--text-2); font-size: var(--fs-small); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 1360px) { .topbar__hide-wide { display: none; } }
+@media (max-width: 1180px) { .topbar__context { display: none; } }
 .topbar__actions { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); }
 
 .content { flex: 1; min-height: 0; overflow-y: auto; }
@@ -197,14 +198,14 @@
 
 /* ===== Search workspace: query panel beside the result views =============
    Container query on the page, so the sidebar's width is accounted for: two
-   columns from 1000 px of content. The query panel sticks and scrolls on its
+   columns from 860 px of content (a 1024 px window). The query panel sticks and scrolls on its
    own, so refining and re-running never moves the results out of view. */
 .page { container-type: inline-size; container-name: page; }
 .workspace { display: flex; flex-direction: column; gap: var(--space-section); }
 .workspace__results { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 .workspace__view { min-width: 0; }
-@container page (min-width: 1000px) {
-  .workspace:not(.is-focus) { display: grid; grid-template-columns: var(--panel-w) minmax(0, 1fr); align-items: start; gap: var(--space-section); }
+@container page (min-width: 860px) {
+  .workspace:not(.is-focus) { display: grid; grid-template-columns: clamp(320px, 34cqi, var(--panel-w)) minmax(0, 1fr); align-items: start; gap: var(--space-section); }
   .workspace:not(.is-focus) .workspace__query {
     position: sticky; top: 0;
     max-height: calc(100vh - var(--header-h) - var(--space-section) * 2);
@@ -227,7 +228,7 @@
 }
 .workspace__query .card { padding-top: 18px; }
 .workspace__query .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.workspace__query .form-grid > :first-child:nth-last-child(3) { grid-column: 1 / -1; } /* Corpus on its own row, Find by + Value side by side */
+.workspace__query .form-grid > :first-child:nth-last-child(3), .workspace__query .form-grid > :only-child { grid-column: 1 / -1; } /* Corpus on its own row, Find by + Value side by side */
 
 /* Result bar: total, rate, time and staleness — shared by every view. */
 .result-bar { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; min-height: 44px; padding: 6px 8px 6px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-1); scroll-margin-top: 16px; }
@@ -241,3 +242,9 @@
 .view-tabs__badge { margin-left: 6px; font: 400 var(--fs-micro)/1 var(--font-mono); color: var(--text-3); }
 .view-controls { align-items: center; flex-wrap: wrap; gap: 10px; }
 .ask__preview p { margin: 0 0 8px; color: var(--text-1); line-height: 1.55; font-size: var(--fs-small); }
+.interp { padding: 0 24px 12px; color: var(--text-2); font-size: var(--fs-small); max-width: 110ch; }
+.interp summary { cursor: pointer; list-style: none; }
+.interp summary::-webkit-details-marker { display: none; }
+.interp__more { color: var(--link, var(--accent-blue)); margin-left: 4px; }
+.interp[open] .interp__more { display: none; }
+.interp p { margin: 6px 0 0; }

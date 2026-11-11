@@ -251,7 +251,7 @@ export function ShortcutsDialog() {
     <Dialog open={dialog === "shortcuts"} onClose={() => setDialog(null)} wide title="Keyboard shortcuts"
       text="Ctrl+K opens the command palette: it runs everything below and more (switch corpus, rerun recent searches, change theme)."
       footer={<Button onClick={() => setDialog(null)}>Close</Button>}>
-      <div className="dialog__body"><ShortcutTable /></div>
+      <div className="dialog__body" tabIndex={-1} data-autofocus><ShortcutTable /></div>
     </Dialog>
   );
 }

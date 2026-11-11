@@ -27,7 +27,7 @@ export function useNarrow(query = RAIL_QUERY) {
  */
 export function Sidebar({ collapsed, narrow, drawer = false, onToggle }) {
   const { screen, setScreen, setDialog, evidence, evidenceDirty } = useApp();
-  const meta = { evidence: evidence.length ? `${evidence.length}${evidenceDirty ? " •" : ""}` : null };
+  const meta = { evidence: evidence.length ? String(evidence.length) : null };
   return (
     <aside className="sidebar" aria-label="Main navigation">
       <div className="sidebar__top">
@@ -66,7 +66,7 @@ export function Sidebar({ collapsed, narrow, drawer = false, onToggle }) {
                     title={`${n.label} (Alt+${i + 1})`} onClick={() => setScreen(n.id)}>
                     <Icon {...ICON} aria-hidden="true" fill={active && n.id === "home" ? "currentColor" : "none"} />
                     <span className="nav-item__label">{n.label}</span>
-                    {m != null && <span className="nav-item__meta" title={evidenceDirty ? "Unsaved changes" : undefined}>{m}</span>}
+                    {m != null && <span className="nav-item__meta">{m}{n.meta === "evidence" && evidenceDirty && <span className="nav-item__dirty" title="Unsaved changes"><span className="sr-only">, unsaved changes</span></span>}</span>}
                   </button>
                 </li>
               );

@@ -30,7 +30,7 @@ const VIEWS = {
  * right. Every view keeps its last result for the current search.
  */
 export default function Search() {
-  const { query, setQuery, search, setSearch, run, toast, log, remember, info, screen, setScreen, evidence, setEvidence, setEvidenceDirty, prefs, setPrefs, busy, analysis, setAnalysis } = useApp();
+  const { query, setQuery, search, setSearch, run, toast, log, remember, info, screen, setScreen, evidence, setEvidence, setEvidenceDirty, prefs, setPrefs, busy, analysis, setAnalysis, asking } = useApp();
   const view = screen.split("/")[1] || "matches";
   const [limit, setLimit] = useUiState("matches.limit", 25);
   const [context, setContext] = useUiState("matches.context", 4);
@@ -184,8 +184,8 @@ export default function Search() {
               </Notice>
             )}
             <QueryBuilder query={query} onChange={setQuery} onSubmit={() => !error && hasQuery(query) && execute(0)} allowCqp errorId={error ? "query-error" : null} />
-            <QueryPanel preview={preview} error={error} op="search"
-              request={unqueryable ? null : { ...query, gap: Number(query.gap || 0), offset: 0, limit, context }} />
+            {!asking && <QueryPanel preview={preview} error={error} op="search"
+              request={unqueryable ? null : { ...query, gap: Number(query.gap || 0), offset: 0, limit, context }} />}
           </div>
         </Card>
         </aside>
@@ -285,9 +285,15 @@ export default function Search() {
               )}
             </div>
           </div>
-          {search.interpretation && (
-            <div style={{ padding: "0 24px 14px", color: "var(--text-2)", fontSize: "var(--fs-small)", maxWidth: "110ch" }}>{search.interpretation}</div>
-          )}
+          {search.interpretation && (() => {
+            const [head, ...rest] = search.interpretation.split(/(?<=\.)\s+/);
+            return (
+              <details className="interp">
+                <summary>{head}{rest.length ? <span className="interp__more"> What this means</span> : null}</summary>
+                {rest.length > 0 && <p>{rest.join(" ")}</p>}
+              </details>
+            );
+          })()}
           <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
             {data.results.length ? (
               <Kwic rows={data.results} offset={page.offset} selected={selected} onSelect={setSelected} />
