@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CircleAlert, CircleCheck, Info, KeyRound, Search, ShieldAlert, TriangleAlert, X, History } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke } from "../lib/ipc.js";
-import { NAV, CORPUS_ORDER, corpusColor, orderedCorpora } from "../nav.js";
+import { corpusColor, orderedCorpora } from "../nav.js";
+import { keyLabel, useCommands } from "../commands.js";
 import { Button, Checkbox, Dialog, Field, ICON, Input, Kbd, Notice } from "./ui.jsx";
 import { compact } from "../lib/format.js";
 import { queryLabel } from "../lib/query.js";
@@ -142,7 +143,8 @@ export function HostKeyDialog() {
 }
 
 export function CommandPalette() {
-  const { dialog, setDialog, setScreen, info, prefs, query, setQuery, setSearch, theme, setConsoleOpen, recent } = useApp();
+  const { dialog, setDialog, setScreen, info, prefs, query, setQuery, setSearch, recent } = useApp();
+  const commands = useCommands();
   const open = dialog === "palette";
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
@@ -155,14 +157,14 @@ export function CommandPalette() {
 
   const items = useMemo(() => {
     const out = [];
-    NAV.forEach((n) => {
-      if (n.children) n.children.forEach((c) => out.push({ group: "Screens", label: `${n.label} · ${c.label}`, icon: n.icon, run: () => setScreen(c.id) }));
-      else out.push({ group: "Screens", label: n.label, icon: n.icon, run: () => setScreen(n.id) });
-    });
+    const cmd = (c) => ({ group: c.group, label: c.label, keys: c.keys, run: c.run });
+    const usable = commands.filter((c) => c.run && !c.hidden && !c.local && (!c.when || c.when() || c.group === "Search"));
+    const order = ["Search", "Go to", "Search views", "Corpora views"];
+    order.forEach((g) => usable.filter((c) => c.group === g).forEach((c) => out.push(cmd(c))));
     if (info)
       orderedCorpora(info).filter((c) => info.corpora[c].available !== false).forEach((c) =>
         out.push({
-          group: "Corpora", label: c, dot: corpusColor(c), meta: compact(info.corpora[c].tokens),
+          group: "Working corpus", label: c, dot: corpusColor(c), meta: compact(info.corpora[c].tokens),
           run: () => { if (c !== query.corpus) { setQuery({ ...query, corpus: c, meta_attr: "", meta_value: "", filters: [] }); setSearch(null); } setScreen("search"); },
         })
       );
@@ -170,20 +172,15 @@ export function CommandPalette() {
       out.push({
         group: "Recent searches", icon: History, meta: `${Number(r.total).toLocaleString()} hits`,
         label: `${r.query.corpus} · ${r.query.manual ? queryLabel(r.query) : [r.query.value, ...(r.query.next || []).map((t) => t.value), r.query.second_value].filter(Boolean).join(" ") || queryLabel(r.query)}`,
-        run: () => { setQuery(r.query); setSearch(null); setScreen("search"); setTimeout(() => window.dispatchEvent(new Event("cqp:search")), 50); },
+        run: () => { setQuery(r.query); setSearch(null); setScreen("search/matches"); setTimeout(() => window.dispatchEvent(new Event("cqp:search")), 50); },
       })
     );
     (prefs?.saved_searches || []).forEach((s) =>
       out.push({ group: "Saved searches", label: s.name, icon: Search, run: () => { setQuery((cur) => ({ ...cur, ...s.query })); setSearch(null); setScreen("search"); } })
     );
-    out.push({ group: "Preferences", label: "Theme: Dark", run: () => theme.setPref("dark") });
-    out.push({ group: "Preferences", label: "Theme: Light", run: () => theme.setPref("light") });
-    out.push({ group: "Preferences", label: "Theme: Follow system", run: () => theme.setPref("system") });
-    out.push({ group: "Preferences", label: "Connection settings…", run: () => setDialog("connect") });
-    out.push({ group: "Preferences", label: "Toggle console (commands & replies)", run: () => setConsoleOpen((o) => !o) });
-    out.push({ group: "Preferences", label: "Check for updates", run: () => window.dispatchEvent(new Event("hapax:check-updates")) });
+    usable.filter((c) => !order.includes(c.group)).forEach((c) => out.push(cmd(c)));
     return out;
-  }, [info, prefs, recent, query, setQuery, setScreen, setSearch, theme, setDialog, setConsoleOpen]);
+  }, [commands, info, prefs, recent, query, setQuery, setScreen, setSearch]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -202,12 +199,12 @@ export function CommandPalette() {
     <Dialog open={open} onClose={() => setDialog(null)} className="palette" labelledBy="palette-label">
       <div className="palette__input">
         <Search {...ICON} aria-hidden="true" />
-        <label id="palette-label" htmlFor="palette-q" className="sr-only">Search screens, corpora and saved searches</label>
+        <label id="palette-label" htmlFor="palette-q" className="sr-only">Commands, views, corpora and saved searches</label>
         <input
           id="palette-q"
           autoFocus
           value={q}
-          placeholder="Search screens, corpora, saved searches…"
+          placeholder="Run a command, go to a view, corpus or saved search…"
           onChange={(e) => { setQ(e.target.value); setSel(0); }}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(filtered.length - 1, s + 1)); }
@@ -230,8 +227,9 @@ export function CommandPalette() {
               {head && <div className="palette__group" role="presentation">{head}</div>}
               <div id={`pal-${i}`} role="option" aria-selected={i === sel} className="palette__item" onMouseEnter={() => setSel(i)} onClick={() => choose(i)}>
                 {it.dot ? <span className="dot" style={{ background: it.dot, color: it.dot, margin: "0 4px" }} /> : I ? <I {...ICON} aria-hidden="true" /> : <span style={{ width: 16 }} />}
-                {it.label}
+                <span className="palette__label">{it.label}</span>
                 {it.meta && <span className="mono">{it.meta}</span>}
+                {it.keys && <span className="kbd-group" aria-label={`Shortcut ${keyLabel(it.keys).join(" ")}`}>{keyLabel(it.keys).map((k) => <Kbd key={k} small>{k}</Kbd>)}</span>}
               </div>
             </li>
           );
@@ -243,6 +241,46 @@ export function CommandPalette() {
         <span><Kbd small>Esc</Kbd> close</span>
       </div>
     </Dialog>
+  );
+}
+
+/** Every shortcut, grouped, generated from the command registry. Opened with ? or the top-bar button. */
+export function ShortcutsDialog() {
+  const { dialog, setDialog } = useApp();
+  return (
+    <Dialog open={dialog === "shortcuts"} onClose={() => setDialog(null)} wide title="Keyboard shortcuts"
+      text="Ctrl+K opens the command palette: it runs everything below and more (switch corpus, rerun recent searches, change theme)."
+      footer={<Button onClick={() => setDialog(null)}>Close</Button>}>
+      <div className="dialog__body"><ShortcutTable /></div>
+    </Dialog>
+  );
+}
+
+/** The shortcut list itself (also shown on Methods & help). */
+export function ShortcutTable() {
+  const commands = useCommands();
+  const withKeys = [
+    { group: "App", label: "Command palette", keys: { key: "k", mod: true } },
+    ...commands.filter((c) => c.keys && c.id !== "app.palette" && c.id !== "go.help.f1"),
+    { group: "Go to", label: "Methods & help", keys: { key: "F1" } },
+  ];
+  const groups = [...new Set(withKeys.map((c) => c.group))];
+  return (
+    <div className="shortcut-grid">
+      {groups.map((g) => (
+        <section key={g}>
+          <h3 className="section-label">{g}</h3>
+          <dl className="shortcut-list">
+            {withKeys.filter((c) => c.group === g).map((c) => (
+              <div key={c.group + c.label + keyLabel(c.keys).join("")} className="shortcut-list__row">
+                <dt>{keyLabel(c.keys).map((k) => <Kbd key={k} small>{k}</Kbd>)}{c.alsoKeys && <>{" / "}{keyLabel(c.alsoKeys).map((k) => <Kbd key={k} small>{k}</Kbd>)}</>}</dt>
+                <dd>{c.label}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))}
+    </div>
   );
 }
 

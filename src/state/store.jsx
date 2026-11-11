@@ -143,7 +143,12 @@ export function AppProvider({ children }) {
     }, 400);
     return () => clearTimeout(t);
   }, [query]);
-  const [workflow, setWorkflow] = useState({ corpus: "BNC-BABY", steps: [], result: null, request: null, mode: "results" });
+  // The Combine plan (not its results) is kept for this viewer, so a plan survives a restart.
+  const [workflow, setWorkflow] = useState(() => {
+    const kept = ui.get("workflow.plan", null);
+    return { corpus: kept?.corpus || "BNC-BABY", steps: Array.isArray(kept?.steps) ? kept.steps : [], result: null, request: null, mode: "results" };
+  });
+  useEffect(() => { ui.set("workflow.plan", { corpus: workflow.corpus, steps: workflow.steps }); }, [workflow.corpus, workflow.steps]);
 
   const persistTheme = useCallback((t) => {
     setPrefs((p) => {

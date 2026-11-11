@@ -3,12 +3,11 @@ import { AppProvider, useApp } from "./state/store.jsx";
 import { Sidebar, useNarrow } from "./components/Sidebar.jsx";
 import { Guide } from "./components/PageHeader.jsx";
 import { Topbar } from "./components/Topbar.jsx";
-import { CommandPalette, ConnectDialog, HostKeyDialog, Toasts } from "./components/Dialogs.jsx";
+import { CommandPalette, ConnectDialog, HostKeyDialog, ShortcutsDialog, Toasts } from "./components/Dialogs.jsx";
 import { Spinner } from "./components/ui.jsx";
 import { ConsolePanel } from "./components/ConsolePanel.jsx";
 import { UpdateNotice } from "./components/UpdateNotice.jsx";
-import { SCREENS } from "./nav.js";
-import { isMod } from "./lib/platform.js";
+import { matches, useCommands } from "./commands.js";
 import Home from "./screens/Home.jsx";
 import Search from "./screens/Search.jsx";
 
@@ -28,50 +27,28 @@ function Screen({ id }) {
   }
 }
 
+/** Keyboard: every shortcut comes from the command registry (src/commands.js). */
 function useShortcuts() {
-  const { setDialog, setScreen, screen, dialog, setConsoleOpen } = useApp();
+  const { dialog } = useApp();
+  const commands = useCommands();
   useEffect(() => {
     const onKey = (e) => {
-      const k = e.key.toLowerCase();
-      if (isMod(e) && k === "k") {
+      const t = e.target;
+      const typing = t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
+      for (const c of commands) {
+        if (!c.run || c.local || !matches(c.keys, e)) continue;
+        if (dialog && !c.always) continue;
+        if (c.when && !c.when()) continue;
+        const bare = !c.keys.mod && !/^F\d+$/.test(c.keys.key);
+        if (typing && bare) continue; // plain keys and Alt+arrows belong to the field
         e.preventDefault();
-        setDialog(dialog === "palette" ? null : "palette");
+        c.run();
         return;
-      }
-      if (isMod(e) && (e.key === "`" || e.code === "Backquote")) {
-        e.preventDefault();
-        setConsoleOpen((o) => !o);
-        return;
-      }
-      if (dialog) return;
-      if (e.key === "F1") {
-        e.preventDefault();
-        setScreen("help");
-      } else if (e.altKey && /^[1-9]$/.test(e.key)) {
-        const target = SCREENS[Number(e.key) - 1];
-        if (target) {
-          e.preventDefault();
-          setScreen(target);
-        }
-      } else if (isMod(e) && e.key === "Enter") {
-        e.preventDefault();
-        if (screen !== "search/matches") setScreen("search/matches");
-        setTimeout(() => window.dispatchEvent(new CustomEvent("cqp:search")), 0);
-      } else if (isMod(e) && k === "l") {
-        e.preventDefault();
-        if (!screen.startsWith("search")) setScreen("search");
-        setTimeout(() => document.querySelector("[data-search-term]")?.focus(), 30);
-      } else if (isMod(e) && k === "s" && screen.startsWith("search")) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent("cqp:save"));
-      } else if (isMod(e) && k === "e" && screen === "search/matches") {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent("cqp:export"));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setDialog, setScreen, screen, dialog, setConsoleOpen]);
+  }, [commands, dialog]);
 }
 
 function Shell() {
@@ -126,6 +103,7 @@ function Shell() {
       <ConnectDialog />
       <HostKeyDialog />
       <CommandPalette />
+      <ShortcutsDialog />
       <UpdateNotice />
       <Toasts />
     </div>

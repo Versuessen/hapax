@@ -1,25 +1,13 @@
 import { PageHeader, resetGuides } from "../components/PageHeader.jsx";
+import { ShortcutTable } from "../components/Dialogs.jsx";
 import { RefreshCw } from "lucide-react";
 import { Button, Card, Kbd } from "../components/ui.jsx";
 import { useApp } from "../state/store.jsx";
 import { openExternal } from "../lib/ipc.js";
 import { modKey } from "../lib/platform.js";
 
-const SHORTCUTS = [
-  [[modKey, "K"], "Search screens, corpora and saved searches"],
-  [[modKey, "Enter"], "Run the current search"],
-  [[modKey, "L"], "Focus the search value"],
-  [[modKey, "S"], "Save the current search definition"],
-  [[modKey, "E"], "Export the current result page"],
-  [["Alt", "1…7"], "Go to a section (in sidebar order)"],
-  [["F1"], "Open Methods & help"],
-  [[modKey, "`"], "Show / hide the console (commands sent, replies received)"],
-  [["1", "2", "3", "0"], "Evidence: relevant / irrelevant / unsure / reset"],
-  [["Esc"], "Close a dialog"],
-];
-
 export default function Help() {
-  const { info, toast } = useApp();
+  const { info, toast, setGuideOpen } = useApp();
   return (
     <div className="page">
       <PageHeader aside="read before citing" />
@@ -59,24 +47,15 @@ export default function Help() {
         <div className="stack">
         <Card title="About" sub={`Hapax ${info?.version || ""}`}
           actions={<>
-            <Button variant="ghost" onClick={() => { resetGuides(); toast("Every page's guide will open again on your next visit.", "neutral", 4000); }}>Show all guides again</Button>
+            <Button variant="ghost" onClick={() => { resetGuides(); setGuideOpen(true); toast("Guides are shown on every page until you close one (Ctrl+/ or the Guide button).", "neutral", 5000); }}>Show page guides</Button>
             <Button icon={RefreshCw} onClick={() => window.dispatchEvent(new Event("hapax:check-updates"))}>Check for updates</Button>
           </>}>
           <div className="prose" style={{ fontSize: "var(--fs-small)" }}>
             <p>Source, issues and release notes: <a href="https://github.com/Versuessen/hapax" onClick={(e) => { e.preventDefault(); openExternal("https://github.com/Versuessen/hapax"); }}>github.com/Versuessen/hapax</a>.</p>
           </div>
         </Card>
-        <Card flush title="Keyboard shortcuts">
-          <table className="table" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-            <tbody>
-              {SHORTCUTS.map(([keys, what]) => (
-                <tr key={what}>
-                  <td style={{ whiteSpace: "nowrap" }}><span className="row" style={{ gap: 4, flexWrap: "nowrap" }}>{keys.map((k) => <Kbd key={k} small>{k}</Kbd>)}</span></td>
-                  <td className="muted">{what}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <Card title="Keyboard shortcuts" sub="The same list opens anywhere with ? · Ctrl+K runs any command by name">
+          <ShortcutTable />
         </Card>
         </div>
       </div>

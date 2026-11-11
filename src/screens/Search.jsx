@@ -91,14 +91,15 @@ export default function Search() {
     const onSearch = () => !busy && hasQuery(query) && !unqueryable && execute(0);
     const onSave = () => hasQuery(query) && setSaveOpen(true);
     const onExport = () => data && !stale && exportPage();
-    window.addEventListener("cqp:search", onSearch);
-    window.addEventListener("cqp:save", onSave);
-    window.addEventListener("cqp:export", onExport);
-    return () => {
-      window.removeEventListener("cqp:search", onSearch);
-      window.removeEventListener("cqp:save", onSave);
-      window.removeEventListener("cqp:export", onExport);
+    const onPage = (e) => {
+      if (!data || stale || busy) return;
+      const next = page.offset + e.detail * page.limit;
+      if (next >= 0 && next < data.total) execute(next);
     };
+    const onEvidence = () => data && !stale && data.results.length && addEvidence();
+    const on = { "cqp:search": onSearch, "cqp:save": onSave, "cqp:export": onExport, "hapax:page": onPage, "hapax:add-evidence": onEvidence };
+    Object.entries(on).forEach(([k, f]) => window.addEventListener(k, f));
+    return () => Object.entries(on).forEach(([k, f]) => window.removeEventListener(k, f));
   });
 
   const exportPage = async () => {

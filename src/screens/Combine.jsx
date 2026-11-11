@@ -212,11 +212,11 @@ function Builder() {
           <EmptyState icon={WorkflowIcon} title="No steps yet">Start with a search, then keep or remove matches by annotation, or combine two results. Every step's match count is shown after a run.</EmptyState>
         )}
         <div className="card__foot">
-          <Button icon={Plus} onClick={() => setEditor({ kind: "search" })} disabled={wf.steps.length >= 12}>Search</Button>
+          <Button icon={Plus} onClick={() => setEditor({ kind: "search" })} disabled={wf.steps.length >= 12}>Search step</Button>
           <Button icon={Filter} onClick={() => setEditor({ kind: "refine" })} disabled={!wf.steps.length || wf.steps.length >= 12}>Keep / remove</Button>
           <Button icon={Combine} onClick={() => setEditor({ kind: "combine" })} disabled={wf.steps.length < 2 || wf.steps.length >= 12}>Combine</Button>
           <span className="spacer" />
-          {wf.steps.length > 0 && <Button variant="ghost" icon={Trash2} onClick={() => update({ steps: [] })}>Clear</Button>}
+          {wf.steps.length > 0 && <Button variant="ghost" icon={Trash2} onClick={() => { const before = wf.steps; update({ steps: [] }); toast(`Cleared ${before.length} step${before.length === 1 ? "" : "s"}.`, "neutral", 8000, { label: "Undo", onClick: () => update({ steps: before }) }); }}>Clear</Button>}
         </div>
       </Card>
 
