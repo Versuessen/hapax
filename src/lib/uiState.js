@@ -1,3 +1,5 @@
+import { useCallback, useState } from "react";
+
 /**
  * Remembered interface state for this viewer: last screen and views, view
  * settings, panel choices. One JSON object in localStorage; every access is
@@ -24,3 +26,15 @@ export const ui = {
     try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* defaults next time */ }
   },
 };
+
+
+/** useState that is remembered for this viewer under `hapax.ui[key]`. */
+export function useUiState(key, initial) {
+  const [v, setV] = useState(() => ui.get(key, initial));
+  const set = useCallback((next) => setV((cur) => {
+    const n = typeof next === "function" ? next(cur) : next;
+    ui.set(key, n);
+    return n;
+  }), [key]);
+  return [v, set];
+}

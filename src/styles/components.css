@@ -509,6 +509,7 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text-1); }
 .chip-toggle:hover:not(:disabled) { border-color: var(--border-strong, var(--text-3)); color: var(--text-1); }
 .chip-toggle.is-on { background: var(--bg-elevated, var(--bg-sidebar)); border-color: var(--text-2); color: var(--text-1); }
 .chip-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+.chip-toggle.is-on:disabled { opacity: 1; cursor: default; }
 .chip-toggle:focus-visible { outline: 2px solid var(--focus, var(--accent-blue)); outline-offset: 2px; }
 .table-scroll { overflow-x: auto; }
 
@@ -621,7 +622,8 @@ th.num .th-sort { flex-direction: row-reverse; }
 
 /* ===== Corpus table (Corpora → Contents & metadata) ===================== */
 .corpus-table .table td { white-space: nowrap; }
-.corpus-table .table td.corpus-table__desc, .corpus-table .table td.corpus-table__variety { white-space: normal; min-width: 160px; line-height: 1.4; }
+.corpus-table .table td { padding-top: 7px; padding-bottom: 7px; }
+.corpus-table .table td.corpus-table__desc, .corpus-table .table td.corpus-table__variety { max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
 .corpus-table__name { all: unset; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; border-radius: var(--radius-sm); }
 .corpus-table__name:focus-visible { outline: 2px solid var(--focus, var(--accent-blue)); outline-offset: 3px; }
 .corpus-table__status { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); }

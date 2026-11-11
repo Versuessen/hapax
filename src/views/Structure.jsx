@@ -1,10 +1,10 @@
-import { PageHeader } from "../components/PageHeader.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { FileDown, Network, Play } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke, saveDialog } from "../lib/ipc.js";
 import { Button, Card, Chip, EmptyState, Field, Input, Notice } from "../components/ui.jsx";
-import { exportReport } from "./Search.jsx";
+import { exportReport } from "../lib/exportReport.js";
+import { useRunView } from "./Analyses.jsx";
 import { seconds, thousands } from "../lib/format.js";
 
 const isNum = (s) => /^\d+$/.test(s || "");
@@ -73,11 +73,19 @@ function ArcDiagram({ tokens, hover, setHover }) {
   );
 }
 
-export default function Syntax() {
-  const { run, toast, log, busy } = useApp();
-  const [pos, setPos] = useState(() => String(window.__cqpSyntaxPos ?? ""));
-  const [res, setRes] = useState(null);
+/**
+ * Search › Structure: dependency relations of one EF-Cambridge sentence.
+ * Opened from a selected EFCAM match (its token position is passed through
+ * `analysis.syntaxAt`) or by typing a position. The result is kept while you
+ * switch views.
+ */
+export function StructureView() {
+  const { run, toast, log, busy, analysis, setAnalysis } = useApp();
+  const runView = useRunView();
+  const res = analysis.structure || null;
+  const [pos, setPos] = useState(() => String(analysis.syntaxAt ?? res?.position ?? ""));
   const [hover, setHover] = useState(null);
+  const setRes = (r) => setAnalysis((a) => ({ ...a, structure: r }));
 
   const go = async (p = pos) => {
     const position = Number(p);
@@ -88,21 +96,20 @@ export default function Syntax() {
       log({ label: `EFCAM sentence at ${thousands(position)}`, detail: `${out.data.tokens.length} tokens` });
     }
   };
+  runView.current = () => !busy && pos && go();
   useEffect(() => {
-    if (window.__cqpSyntaxPos != null) {
-      const p = window.__cqpSyntaxPos;
-      window.__cqpSyntaxPos = null;
-      go(p);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const p = analysis.syntaxAt;
+    if (p == null) return;
+    setAnalysis((a) => ({ ...a, syntaxAt: null }));
+    setPos(String(p));
+    if (res?.position !== p) go(String(p));
+  }, [analysis.syntaxAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const d = res?.data?.diagnostics;
   return (
-    <div className="page">
-      <PageHeader aside="EFCAM" />
-      <div className="stack">
-        <Card title="Inspect a sentence's dependency relations" sub="EF-Cambridge learner corpus only · select an EFCAM match in Search to jump here"
-          actions={<Button variant="primary" icon={Play} onClick={() => go()} disabled={!pos || !!busy}>Inspect</Button>}>
+    <div className="stack">
+        <Card title="Sentence structure (EFCAM)" sub="EF-Cambridge learner corpus only · select an EFCAM match and choose Inspect syntax, or enter a token position"
+          actions={<Button variant="primary" icon={Play} onClick={() => go()} disabled={!pos || !!busy} title="Inspect (Ctrl+Shift+Enter)">Inspect</Button>}>
           <Field label="Token position" htmlFor="syn-p" hint="0 – 36,353,680">
             <Input id="syn-p" mono value={pos} onChange={(e) => setPos(e.target.value.replace(/[^0-9]/g, ""))} onKeyDown={(e) => e.key === "Enter" && go()} style={{ maxWidth: 240 }} inputMode="numeric" />
           </Field>
@@ -145,7 +152,6 @@ export default function Syntax() {
         ) : (
           <Card><EmptyState icon={Network} title="No sentence loaded">Enter an EFCAM token position. The whole sentence containing it is decoded (max 255 tokens) and checked for one root, cycles and undefined edges.</EmptyState></Card>
         )}
-      </div>
     </div>
   );
 }

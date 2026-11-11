@@ -12,41 +12,6 @@ import { corpusColor, varietyInfo } from "../nav.js";
 import { queryLabel } from "../lib/query.js";
 import { Rate, Size, UnitLabel } from "../components/Units.jsx";
 
-export const POSITIONS = ["L4", "L3", "L2", "L1", "R1", "R2", "R3", "R4"];
-
-/** Turn collocates.pl rows into the reference's multi-series curves. */
-export function collocationSeries(groups, n = 5) {
-  const rows = [...(groups || [])]
-    .map((g) => ({ word: g.Word ?? g.word, total: Number(g.Total ?? 0), values: POSITIONS.map((p) => Number(g[p] ?? 0)) }))
-    .filter((r) => r.word)
-    .sort((a, b) => b.total - a.total);
-  const top = rows.slice(0, n).map((r, i) => ({ name: r.word, values: r.values, color: SERIES[i % SERIES.length], total: r.total }));
-  const next = rows.slice(n, n * 2).map((r) => ({ name: r.word, values: r.values, total: r.total }));
-  return { top, next, all: rows };
-}
-
-export function CollocationChart({ result, compactLegend }) {
-  const { top, next } = useMemo(() => collocationSeries(result?.groups), [result]);
-  if (!top.length) return null;
-  return (
-    <div className="stack" style={{ gap: 18 }}>
-      {!compactLegend && <Legend items={top.map((s) => ({ name: s.name, color: s.color, meta: thousands(s.total) }))} />}
-      <LineChart
-        labels={POSITIONS}
-        series={top}
-        mirrored={next}
-        markIndex={null}
-        height={compactLegend ? 116 : 170}
-        mirroredHeight={compactLegend ? 86 : 100}
-        ariaLabel={`Positional profile of the ${top.length} most frequent neighbouring words; ranks 6–10 mirrored in grey below.`}
-      />
-      <div className="mono" style={{ fontSize: "var(--fs-mono)", color: "var(--text-3)" }}>
-        Positions L4–L1 precede the match, R1–R4 follow it. Upper curves: top {top.length} neighbours. Grey mirrored curves: ranks 6–{5 + next.length}. Raw positional counts, not association scores.
-      </div>
-    </div>
-  );
-}
-
 /** A search as a short line of chips: corpus, words, filters. */
 function SearchChips({ q }) {
   return (

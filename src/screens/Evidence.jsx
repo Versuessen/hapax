@@ -4,7 +4,7 @@ import { FileDown, FolderOpen, NotebookPen, Save, Trash2 } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke, openDialog, saveDialog, JSON_FILTERS } from "../lib/ipc.js";
 import { Button, Card, EmptyState, Segmented, Stat, Notice } from "../components/ui.jsx";
-import { exportReport } from "./Search.jsx";
+import { exportReport } from "../lib/exportReport.js";
 import { thousands } from "../lib/format.js";
 import { corpusColor } from "../nav.js";
 

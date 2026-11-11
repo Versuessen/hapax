@@ -243,32 +243,49 @@
   .grid--kpi { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* ===== Search: query and results side by side when there is room ===========
-   Container query on the page, so the sidebar's width is accounted for:
-   two columns from 1040 px of content (1440 px window with the sidebar,
-   1280 px with it collapsed). The query column sticks and scrolls on its own,
-   so refining and re-running never moves the results out of view. */
+/* ===== Search workspace: query panel beside the result views =============
+   Container query on the page, so the sidebar's width is accounted for: two
+   columns from 1000 px of content. The query panel sticks and scrolls on its
+   own, so refining and re-running never moves the results out of view. */
 .page { container-type: inline-size; container-name: page; }
-.search-layout { display: flex; flex-direction: column; gap: var(--space-4); }
-.search-layout__results { min-width: 0; }
-@container page (min-width: 1040px) {
-  .search-layout:not(.is-focus) { display: grid; grid-template-columns: minmax(380px, 420px) minmax(0, 1fr); align-items: start; gap: var(--space-5); }
-  .search-layout:not(.is-focus) .search-layout__query {
-    position: sticky; top: var(--space-4);
-    max-height: calc(100vh - var(--header-h) - var(--space-7));
+.workspace { display: flex; flex-direction: column; gap: var(--space-section); }
+.workspace__results { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.workspace__view { min-width: 0; }
+@container page (min-width: 1000px) {
+  .workspace:not(.is-focus) { display: grid; grid-template-columns: var(--panel-w) minmax(0, 1fr); align-items: start; gap: var(--space-section); }
+  .workspace:not(.is-focus) .workspace__query {
+    position: sticky; top: 0;
+    max-height: calc(100vh - var(--header-h) - var(--space-section) * 2);
     overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
     border-radius: var(--radius-lg);
   }
   /* The narrow column stacks the word rows' controls. */
-  .search-layout:not(.is-focus) .seq__row { grid-template-columns: 22px 1fr 1fr; }
-  .search-layout:not(.is-focus) .seq__row > :nth-child(4) { grid-column: 2 / 4; }
-  .search-layout:not(.is-focus) .seq__row > :nth-child(5) { grid-column: 2; }
-  .search-layout:not(.is-focus) .seq__row > :nth-child(6) { grid-column: 3; justify-self: end; }
-  .search-layout:not(.is-focus) .filter-row { grid-template-columns: 1fr 1fr 32px 32px; }
-  .search-layout:not(.is-focus) .filter-row > :nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
-  .search-layout:not(.is-focus) .search-layout__query .form-grid { grid-template-columns: 1fr; }
-  .search-layout:not(.is-focus) .search-layout__query .card__actions { flex-wrap: nowrap; }
-  /* Long variety notes wrapped to four lines beside the buttons; two lines, full text on hover. */
-  .search-layout:not(.is-focus) .search-layout__query .card__sub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .workspace:not(.is-focus) .seq__row { grid-template-columns: 22px 1fr 1fr; }
+  .workspace:not(.is-focus) .seq__row > :nth-child(4) { grid-column: 2 / 4; }
+  .workspace:not(.is-focus) .seq__row > :nth-child(5) { grid-column: 2; }
+  .workspace:not(.is-focus) .seq__row > :nth-child(6) { grid-column: 3; justify-self: end; }
+  .workspace:not(.is-focus) .filter-row { grid-template-columns: 1fr 1fr 32px 32px; }
+  .workspace:not(.is-focus) .filter-row > :nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+  .workspace:not(.is-focus) .workspace__query .card__actions { flex-wrap: nowrap; }
+  /* Analysis views use a single column beside the query panel. */
+  .workspace:not(.is-focus) .workspace__view .grid--split { grid-template-columns: minmax(0, 1fr); }
 }
-.page--guide { padding-bottom: 0; }
+@container page (min-width: 1240px) {
+  .workspace:not(.is-focus) .workspace__view .grid--split { grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); }
+}
+.workspace__query .card { padding-top: 18px; }
+.workspace__query .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.workspace__query .form-grid > :first-child:nth-last-child(3) { grid-column: 1 / -1; } /* Corpus on its own row, Find by + Value side by side */
+
+/* Result bar: total, rate, time and staleness — shared by every view. */
+.result-bar { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; min-height: 44px; padding: 6px 8px 6px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-1); scroll-margin-top: 16px; }
+.result-bar__status { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: var(--fs-small); color: var(--text-2); }
+.result-bar__total { font-size: 20px; font-weight: 500; color: var(--text-1); letter-spacing: var(--track-figure); font-variant-numeric: tabular-nums; }
+.result-bar__sep { color: var(--text-4); }
+.result-bar__stale { display: flex; align-items: center; gap: 6px; color: var(--warning); font-size: var(--fs-small); }
+.tabs.view-tabs { margin: 0; }
+.workspace__query .forms-btn { width: 34px; padding: 0; justify-content: center; }
+.workspace__query .forms-btn__label { display: none; }
+.view-tabs__badge { margin-left: 6px; font: 400 var(--fs-micro)/1 var(--font-mono); color: var(--text-3); }
+.view-controls { align-items: center; flex-wrap: wrap; gap: 10px; }
+.ask__preview p { margin: 0 0 8px; color: var(--text-1); line-height: 1.55; font-size: var(--fs-small); }

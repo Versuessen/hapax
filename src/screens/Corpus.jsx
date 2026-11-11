@@ -6,11 +6,15 @@ import { useApp } from "../state/store.jsx";
 import { invoke } from "../lib/ipc.js";
 import { Button, Card, Chip, EmptyState, Field, Notice, Select } from "../components/ui.jsx";
 import { BarCell } from "../components/charts.jsx";
-import { ExplainPanel } from "./Analysis.jsx";
+import { ExplainPanel } from "../views/Analyses.jsx";
 import { corpusColor, corpusFamily, orderedCorpora, isSearchable, varietyInfo } from "../nav.js";
 import { Flag } from "../components/Flag.jsx";
 import { compact, seconds, thousands } from "../lib/format.js";
 import { Size, useUnits } from "../components/Units.jsx";
+import { ViewTabs } from "../components/ui.jsx";
+import { TagsView } from "../views/Tags.jsx";
+import { CORPORA_VIEWS } from "../nav.js";
+import { useUiState } from "../lib/uiState.js";
 
 /** Verified caveats from the handoff (docs/07 F4, F5). Labelled, not silently "fixed". */
 const CAVEATS = {
@@ -115,12 +119,12 @@ function CorpusTable({ selected, onSelect }) {
                       <span>{c}</span>
                     </button>
                   </td>
-                  <td className="muted corpus-table__variety">{ci.variety_note || varietyInfo(ci.variety).label}</td>
+                  <td className="muted corpus-table__variety" title={ci.variety_note || varietyInfo(ci.variety).label}>{ci.variety_note || varietyInfo(ci.variety).label}</td>
                   <td className="num" onClick={(e) => e.stopPropagation()}>{ci.tokens ? <Size corpus={c} label={false} /> : "—"}</td>
                   <td className="muted corpus-table__annotation">{corpusFamily(c)?.label}</td>
                   <td className="num corpus-table__meta">{(ci.metadata || []).length ? `${(ci.metadata || []).length} fields` : "none"}</td>
                   <td title={why}><span className="corpus-table__status"><span className="dot" style={{ background: tone }} />{status}</span></td>
-                  <td className="muted corpus-table__desc">{ci.description}</td>
+                  <td className="muted corpus-table__desc" title={ci.description}>{ci.description}</td>
                 </tr>
               );
             })}
@@ -132,13 +136,14 @@ function CorpusTable({ selected, onSelect }) {
 }
 
 export default function Corpus() {
-  const { info, query, setQuery, setSearch, setScreen, run, log, busy } = useApp();
-  const [name, setName] = useState(query.corpus);
+  const { info, query, setQuery, setSearch, screen, setScreen, run, log, busy } = useApp();
+  const view = screen.split("/")[1] || "about";
+  const [name, setName] = useUiState("corpora.selected", query.corpus);
   const [attr, setAttr] = useState("");
   const [field, setField] = useState(null);
   const [values, setValues] = useState(null);
-  const ci = info?.corpora?.[name];
-  if (!info) return null;
+  const ci = info?.corpora?.[name] || info?.corpora?.[query.corpus];
+  if (!info || !ci) return null;
   const meta = (ci?.metadata || []).map((m) => [m, `${m} · ${compact(ci.structural[m] ?? 0)} regions`, (ci.structural[m] ?? 0) > 10000]);
   const max = Math.max(1, ...(values?.data?.groups || []).map((g) => g.tokens));
 
@@ -154,7 +159,7 @@ export default function Corpus() {
     const base = query.corpus === name ? withFilters(query, filtersOf(query)) : clearFilters({ ...query, corpus: name });
     setQuery({ ...base, filters: [...(base.filters || []), { attr: values.attr, op: "is", value: v }] });
     setSearch(null);
-    setScreen("search");
+    setScreen("search/matches");
   };
 
   return (
@@ -163,6 +168,9 @@ export default function Corpus() {
 
       <CorpusTable selected={name} onSelect={(c) => { setName(c); setAttr(""); setValues(null); setField(null); }} />
 
+      <ViewTabs base="corpora" views={CORPORA_VIEWS} current={view} onChange={setScreen} label="Corpus views" keyHint={false} />
+      <div role="tabpanel" id={`panel-corpora-${view}`} aria-labelledby={`tab-corpora-${view}`} style={{ marginTop: 16 }}>
+      {view === "about" && (
       <div className="grid grid--split" style={{ alignItems: "start" }}>
         <div className="stack">
           <Card title={ci.description} sub={<>{ci.variety_note || varietyInfo(ci.variety).label} · <SizeNote corpus={name} /> · encoding {ci.encoding} · {corpusFamily(name)?.label}</>}
@@ -181,6 +189,23 @@ export default function Corpus() {
             </div>
           </Card>
 
+        </div>
+        <Card flush title="Structural attributes" sub="Regions per attribute (verified inventory)">
+          <div tabIndex={0} role="region" aria-label="Structural attributes" className="table-wrap" style={{ "--table-max": "640px", borderTop: "1px solid var(--border-subtle)" }}>
+            <table className="table">
+              <tbody>
+                {Object.entries(ci.structural).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
+                  <tr key={k}><td className="mono">{k}</td><td className="num" style={{ color: v ? "var(--text-1)" : "var(--text-4)" }}>{thousands(v)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+            {!Object.keys(ci.structural).length && <EmptyState icon={Database} title="None" />}
+          </div>
+        </Card>
+      </div>
+      )}
+      {view === "metadata" && (
+        <div className="stack">
           <Card title="Document & speaker metadata" sub="Values and the share of the corpus they cover — use one as an exact search filter"
             actions={<Button variant="primary" icon={Play} onClick={load} disabled={!attr || !!busy}>Load values</Button>}>
             <div className="stack" style={{ gap: 12 }}>
@@ -214,19 +239,8 @@ export default function Corpus() {
             </Card>
           )}
         </div>
-
-        <Card flush title="Structural attributes" sub="Regions per attribute (verified inventory)">
-          <div tabIndex={0} role="region" aria-label="Structural attributes" className="table-wrap" style={{ "--table-max": "640px", borderTop: "1px solid var(--border-subtle)" }}>
-            <table className="table">
-              <tbody>
-                {Object.entries(ci.structural).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
-                  <tr key={k}><td className="mono">{k}</td><td className="num" style={{ color: v ? "var(--text-1)" : "var(--text-4)" }}>{thousands(v)}</td></tr>
-                ))}
-              </tbody>
-            </table>
-            {!Object.keys(ci.structural).length && <EmptyState icon={Database} title="None" />}
-          </div>
-        </Card>
+      )}
+      {view === "tags" && <TagsView corpus={name} />}
       </div>
     </div>
   );
@@ -247,7 +261,6 @@ function FieldNote({ corpus, field }) {
   );
 }
 
-export { ExplainPanel };
 
 /** "1,137,466 indexed tokens (punctuation included)" or the word count, as a switch. */
 function SizeNote({ corpus }) {

@@ -1,15 +1,15 @@
 import { describeFilters } from "../lib/filters.js";
-import { PageHeader } from "../components/PageHeader.jsx";
 import { describeFollowers, followersOf } from "../lib/sequence.js";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, ExternalLink, FileDown, Play, Search as SearchIcon, Sparkles, TextSearch } from "lucide-react";
 import { useApp, queryKey } from "../state/store.jsx";
 import { invoke, openExternal, saveDialog } from "../lib/ipc.js";
 import { Button, Card, Checkbox, EmptyState, Field, ICON, Input, Notice, Segmented, Select, Chip, Tabs } from "../components/ui.jsx";
 import { BarCell, SERIES } from "../components/charts.jsx";
 import { FIELD_LABELS } from "../components/QueryBuilder.jsx";
-import { CollocationChart, POSITIONS, collocationSeries } from "./Overview.jsx";
-import { exportReport } from "./Search.jsx";
+import { CollocationChart, POSITIONS, collocationSeries } from "../components/charts.jsx";
+import { exportReport } from "../lib/exportReport.js";
+import { useUiState } from "../lib/uiState.js";
 import { safeFileStem, seconds, thousands } from "../lib/format.js";
 import { corpusColor, isSearchable, orderedCorpora } from "../nav.js";
 import { Flag } from "../components/Flag.jsx";
@@ -25,7 +25,7 @@ export async function runCollocates({ run, query, sample, key, retry = null }) {
 }
 
 /** The base query for analysis: the last search if still current (v3 rule). */
-function useBase() {
+export function useBase() {
   const { search, query } = useApp();
   if (search && search.key === queryKey(query)) return { base: search.request, key: search.key, total: search.data.total };
   if (search) return { stale: true };
@@ -33,36 +33,30 @@ function useBase() {
   return { none: true };
 }
 
-function BaseNotice({ b }) {
-  const { setScreen } = useApp();
+export function BaseNotice({ b }) {
   if (b.none)
     return (
       <Card>
-        <EmptyState icon={TextSearch} title="Nothing to analyse yet" action={<Button variant="primary" onClick={() => setScreen("search")}>Open search</Button>}>
-          Analyses run on your current search query. Build one on the Search screen first.
+        <EmptyState icon={TextSearch} title="Nothing to analyse yet">
+          Write a search in the panel on the left. Each view counts the matches of that search, so run it first (Ctrl+Enter) to see the lines behind the numbers.
         </EmptyState>
       </Card>
-    );
-  if (b.stale)
-    return (
-      <Notice tone="warn">
-        You changed the query since the last search. Run <strong>Search</strong> again first, so the analysis describes the results you are looking at.{" "}
-        <Button variant="ghost" onClick={() => setScreen("search")}>Go to search</Button>
-      </Notice>
     );
   return null;
 }
 
-function QuerySummary({ q }) {
-  return (
-    <div className="row" style={{ gap: 6 }}>
-      <Chip dot={corpusColor(q.corpus)}>{q.corpus}</Chip>
-      <Chip>{queryLabel(q)}</Chip>
-      {!q.manual && describeFollowers(q).map((d) => <Chip key={d}>{d}</Chip>)}
-      {!q.manual && q.sentence_only && <Chip>within s</Chip>}
-      {describeFilters(q).map((d) => <Chip key={d} tone="warn">{d}</Chip>)}
-    </div>
-  );
+/**
+ * Ctrl+Shift+Enter (or the palette) runs the analysis of the open view.
+ * Call before any early return; set `.current` to the run function.
+ */
+export function useRunView() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const on = () => ref.current?.();
+    window.addEventListener("hapax:run-view", on);
+    return () => window.removeEventListener("hapax:run-view", on);
+  }, []);
+  return ref;
 }
 
 export function ExplainPanel({ corpus, field, value, onClose }) {
@@ -124,7 +118,7 @@ function Frequencies() {
   const ci = b.base ? info?.corpora?.[b.base.corpus] : null;
   const opts = GROUPABLE.filter((f) => (f === "lexeme" ? ci?.lexeme : ci?.positional?.includes(f))).map((f) => [f, FIELD_LABELS[f] || f]);
   const posOpts = b.base ? positionOptions(b.base) : [];
-  const [field, setField] = useState("word");
+  const [field, setField] = useUiState("counts.field", "word");
   const [position, setPosition] = useState("first");
   const [extra, setExtra] = useState([]); // [{ corpus, filters }]
   const [pick, setPick] = useState(null);
@@ -137,6 +131,7 @@ function Frequencies() {
     if (posOpts.length && !posOpts.some(([v]) => v === position)) setPosition(posOpts[0][0]);
   }, [b.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const runView = useRunView();
   if (!b.base) return <BaseNotice b={b} />;
   const others = orderedCorpora(info).filter((c) => c !== b.base.corpus && isSearchable(info.corpora[c]));
 
@@ -158,13 +153,13 @@ function Frequencies() {
     setAnalysis((a) => ({ ...a, frequencies: { key: b.key, field, position, results, elapsed: (performance.now() - t0) / 1000, corpus: b.base.corpus } }));
     log({ label: `Counted “${queryLabel(b.base)}” by ${field} (${posOpts.find(([v]) => v === position)?.[1] || position})`, detail: `${results.length} corpus${results.length === 1 ? "" : "es"}` });
   };
+  runView.current = () => !busy && go();
 
   return (
     <div className="stack">
       <Card title="Count the matches by an annotation" sub="Counts the full result on the server, not just the page you viewed"
         actions={<Button variant="primary" icon={Play} onClick={go} disabled={!!busy}>Count</Button>}>
         <div className="stack" style={{ gap: 16 }}>
-          <QuerySummary q={b.base} />
           <div className="form-grid">
             <Field label="Count" htmlFor="fq-pos">
               <Select id="fq-pos" value={position} options={posOpts} onChange={(e) => setPosition(e.target.value)} />
@@ -316,9 +311,10 @@ function FragmentCells({ count, share, max, color }) {
 function Collocates() {
   const { run, analysis, setAnalysis, toast, log, busy } = useApp();
   const b = useBase();
-  const [sample, setSample] = useState(100);
+  const [sample, setSample] = useUiState("nearby.sample", 100);
   const res = analysis.collocates && b.key && analysis.collocates.key === b.key ? analysis.collocates : null;
   const rows = useMemo(() => collocationSeries(res?.data?.groups, 5).all, [res]);
+  const runView = useRunView();
   if (!b.base) return <BaseNotice b={b} />;
 
   const go = async () => {
@@ -327,6 +323,7 @@ function Collocates() {
     setAnalysis((a) => ({ ...a, collocates: r }));
     log({ label: `Nearby words of “${queryLabel(b.base)}”`, detail: `${r.data.groups.length} words · ${seconds(r.elapsed)}` });
   };
+  runView.current = () => !busy && go();
   const max = Math.max(1, ...rows.map((r) => r.total));
 
   return (
@@ -334,8 +331,6 @@ function Collocates() {
       <Card title="Which words appear nearby?" sub="Positional counts L4–R4 from the first N matches in corpus order"
         actions={<Button variant="primary" icon={Play} onClick={go} disabled={!!busy}>Count</Button>}>
         <div className="row" style={{ gap: 16, alignItems: "flex-end" }}>
-          <QuerySummary q={b.base} />
-          <span className="spacer" />
           <Field label="Matches to sample" htmlFor="col-n" hint="1–500, first in corpus order">
             <Input id="col-n" mono type="number" min={1} max={500} value={sample} onChange={(e) => setSample(Math.max(1, Math.min(500, Number(e.target.value) || 1)))} style={{ width: 140 }} />
           </Field>
@@ -398,14 +393,15 @@ function Distribution() {
   const ci = b.base ? info?.corpora?.[b.base.corpus] : null;
   // Only attributes small enough to decode on the shared server (≤ 10,000 regions).
   const attrs = (ci?.metadata || []).filter((m) => (ci.structural?.[m] || 0) > 0 && ci.structural[m] <= 10000);
-  const [attr, setAttr] = useState("");
-  const [order, setOrder] = useState("rate");
-  const [minTokens, setMinTokens] = useState(10000);
-  const [byGenre, setByGenre] = useState(true);
+  const [attr, setAttr] = useUiState(`spread.attr.${b.base?.corpus}`, "");
+  const [order, setOrder] = useUiState("spread.order", "rate");
+  const [minTokens, setMinTokens] = useUiState("spread.min", 10000);
+  const [byGenre, setByGenre] = useUiState("spread.genre", true);
   useEffect(() => {
     if (!attrs.includes(attr)) setAttr(attrs.find((a) => /genre|type|decade|period|sex|age|class/i.test(a)) || attrs[0] || "");
   }, [ci]); // eslint-disable-line react-hooks/exhaustive-deps
   const res = analysis.distribution && b.key && analysis.distribution.key === b.key ? analysis.distribution : null;
+  const runView = useRunView();
   if (!b.base) return <BaseNotice b={b} />;
 
   const go = async () => {
@@ -414,6 +410,7 @@ function Distribution() {
     setAnalysis((a) => ({ ...a, distribution: { key: b.key, attr, data: out.data, elapsed: out.elapsed_seconds, corpus: b.base.corpus } }));
     log({ label: `Distribution of “${queryLabel(b.base)}” across ${attr}`, detail: `${out.data.rows.length} values · ${seconds(out.elapsed_seconds)}` });
   };
+  runView.current = () => !busy && attr && go();
   const raw = res?.data?.rows || [];
   const brownLike = raw.length > 0 && raw.filter((r) => brownCode(r.value)).length / raw.length >= 0.8;
   const all = brownLike && byGenre ? byBrownCategory(raw) : raw;
@@ -429,7 +426,6 @@ function Distribution() {
       <Card title="Break matches down by metadata" sub="Matches per value, divided by that value's own size"
         actions={<Button variant="primary" icon={Play} onClick={go} disabled={!!busy || !attr}>Count</Button>}>
         <div className="stack" style={{ gap: 16 }}>
-          <QuerySummary q={b.base} />
           {attrs.length ? (
             <div className="row" style={{ gap: 16, alignItems: "flex-end" }}>
               <Field label="Across" htmlFor="ds-attr" style={{ minWidth: 220 }}>
@@ -487,96 +483,4 @@ function Distribution() {
   );
 }
 
-function Codes() {
-  const { info, query, run, analysis, setAnalysis, busy } = useApp();
-  const [corpus, setCorpus] = useState(query.corpus);
-  const ci = info?.corpora?.[corpus];
-  const opts = ["pos", "class", "rel", "usas"].filter((f) => ci?.positional?.includes(f)).map((f) => [f, FIELD_LABELS[f]]);
-  const [field, setField] = useState("pos");
-  const [glossary, setGlossary] = useState([]);
-  const [filter, setFilter] = useState("");
-  const [pick, setPick] = useState(null);
-  const res = analysis.lexicon && analysis.lexicon.corpus === corpus && analysis.lexicon.field === field ? analysis.lexicon : null;
-
-  useEffect(() => {
-    invoke("get_glossary", { corpus }).then(setGlossary).catch(() => setGlossary([]));
-    if (!opts.some(([f]) => f === field)) setField(opts[0]?.[0] || "pos");
-  }, [corpus]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const go = async () => {
-    const out = await run("Loading tag inventory", "run_lexicon", { request: { corpus, field } });
-    if (out) setAnalysis((a) => ({ ...a, lexicon: { corpus, field, data: out.data, elapsed: out.elapsed_seconds } }));
-  };
-  const f = filter.trim().toLowerCase();
-  const gl = glossary.filter((g) => !f || `${g.code} ${g.label} ${g.category}`.toLowerCase().includes(f));
-  const max = Math.max(1, ...(res?.data.groups || []).map((g) => g.count));
-
-  return (
-    <div className="grid grid--split" style={{ alignItems: "start" }}>
-      <div className="stack">
-        <Card title="Codes used in this corpus" sub="Every value of the attribute with its corpus frequency (server)"
-          actions={<Button variant="primary" icon={Play} onClick={go} disabled={!!busy || !opts.length}>Load</Button>}>
-          <div className="row" style={{ gap: 16 }}>
-            <Field label="Corpus" htmlFor="cd-c" style={{ minWidth: 200 }}>
-              <Select id="cd-c" value={corpus} options={Object.keys(info?.corpora || {}).map((c) => [c, c])} onChange={(e) => { setCorpus(e.target.value); setPick(null); }} />
-            </Field>
-            <Field label="Attribute" htmlFor="cd-f" style={{ minWidth: 200 }}>
-              <Select id="cd-f" value={field} options={opts.length ? opts : [["pos", "No tag attributes"]]} onChange={(e) => setField(e.target.value)} />
-            </Field>
-          </div>
-        </Card>
-        {res && (
-          <Card flush title={<><strong>{thousands(res.data.groups.length)}</strong> codes</>} sub={`${corpus} · ${field}${res.data.truncated ? " · first 2,500" : ""}`}>
-            <div tabIndex={0} role="region" aria-label="Annotation codes" className="table-wrap" style={{ "--table-max": "520px", borderTop: "1px solid var(--border-subtle)" }}>
-              <table className="table">
-                <thead><tr><th>Code</th><th>Meaning</th><th style={{ width: "22%" }}><span className="sr-only">Share</span></th><th className="num">Tokens</th></tr></thead>
-                <tbody>
-                  {res.data.groups.map((g, i) => (
-                    <tr key={g.value + i} data-clickable="true" aria-selected={pick === g.value} onClick={() => setPick(g.value)}>
-                      <td className="mono">{g.value}</td><td className="muted">{g.meaning}</td><td><BarCell value={g.count} max={max} color={corpusColor(corpus)} /></td><td className="num">{thousands(g.count)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
-      </div>
-      <div className="stack">
-        {pick && <ExplainPanel corpus={corpus} field={field} value={pick} onClose={() => setPick(null)} />}
-        <Card flush title="Codebook" sub={`Packaged glossary for ${corpus} · works offline`}>
-          <div style={{ padding: "0 24px 12px" }}>
-            <label className="sr-only" htmlFor="gl-q">Filter codebook</label>
-            <div style={{ position: "relative" }}>
-              <SearchIcon {...ICON} style={{ position: "absolute", left: 12, top: 12, color: "var(--text-3)" }} aria-hidden="true" />
-              <Input id="gl-q" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter codes, e.g. VVG or adjective" style={{ paddingLeft: 36 }} />
-            </div>
-          </div>
-          <div tabIndex={0} role="region" aria-label="Codebook" className="table-wrap" style={{ "--table-max": "560px", borderTop: "1px solid var(--border-subtle)" }}>
-            <table className="table">
-              <tbody>
-                {gl.slice(0, 400).map((g, i) => (
-                  <tr key={g.category + g.code + i} data-clickable={g.category === "POS"} onClick={() => g.category === "POS" && (setField("pos"), setPick(g.code))} title={g.note}>
-                    <td className="mono" style={{ width: 90 }}>{g.code}</td>
-                    <td>{g.label}</td>
-                    <td className="mono" style={{ color: "var(--text-3)", fontSize: "var(--fs-mono)", textAlign: "right" }}>{g.category}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!gl.length && <EmptyState icon={BookOpen} title="No codes match">Try a shorter filter.</EmptyState>}
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-export default function Analysis({ sub }) {
-  return (
-    <div className="page">
-      <PageHeader aside={sub === "tags" ? "codebook" : null} />
-      {sub === "nearby" ? <Collocates /> : sub === "tags" ? <Codes /> : sub === "spread" ? <Distribution /> : <Frequencies />}
-    </div>
-  );
-}
+export { Frequencies as CountsView, Collocates as NearbyView, Distribution as SpreadView };

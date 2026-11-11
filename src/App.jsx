@@ -2,8 +2,6 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { AppProvider, useApp } from "./state/store.jsx";
 import { Sidebar, useNarrow } from "./components/Sidebar.jsx";
 import { Guide } from "./components/PageHeader.jsx";
-import { ViewTabs } from "./components/ui.jsx";
-import { NAV } from "./nav.js";
 import { Topbar } from "./components/Topbar.jsx";
 import { CommandPalette, ConnectDialog, HostKeyDialog, Toasts } from "./components/Dialogs.jsx";
 import { Spinner } from "./components/ui.jsx";
@@ -11,41 +9,23 @@ import { ConsolePanel } from "./components/ConsolePanel.jsx";
 import { UpdateNotice } from "./components/UpdateNotice.jsx";
 import { SCREENS } from "./nav.js";
 import { isMod } from "./lib/platform.js";
-import Overview from "./screens/Overview.jsx";
+import Home from "./screens/Home.jsx";
 import Search from "./screens/Search.jsx";
 
-const Analysis = lazy(() => import("./screens/Analysis.jsx"));
-const Workflows = lazy(() => import("./screens/Workflows.jsx"));
+const Combine = lazy(() => import("./screens/Combine.jsx"));
 const Corpus = lazy(() => import("./screens/Corpus.jsx"));
-const Syntax = lazy(() => import("./screens/Syntax.jsx"));
 const Evidence = lazy(() => import("./screens/Evidence.jsx"));
-const Saved = lazy(() => import("./screens/Saved.jsx"));
-const Learn = lazy(() => import("./screens/Learn.jsx"));
 const Help = lazy(() => import("./screens/Help.jsx"));
 
 function Screen({ id }) {
-  const [head, view] = id.split("/");
-  switch (head) {
-    case "search":
-      if (view === "matches") return <Search />;
-      if (view === "compare") return <Workflows sub="compare" />;
-      if (view === "structure") return <Syntax />;
-      return <Analysis sub={view} />;
-    case "corpora": return view === "tags" ? <Analysis sub="tags" /> : <Corpus />;
-    case "combine": return <Workflows sub="builder" />;
+  switch (id.split("/")[0]) {
+    case "search": return <Search />;
+    case "corpora": return <Corpus />;
+    case "combine": return <Combine />;
     case "evidence": return <Evidence />;
     case "help": return <Help />;
-    default: return <Overview />;
+    default: return <Home />;
   }
-}
-
-/** Interim: view tabs for Search and Corpora until each page renders its own. */
-function WorkspaceTabs({ screen }) {
-  const { setScreen } = useApp();
-  const [head, view] = screen.split("/");
-  const n = NAV.find((x) => x.id === head);
-  if (!n?.views) return null;
-  return <div className="page" style={{ paddingBottom: 0 }}><ViewTabs base={head} views={n.views} current={view} onChange={setScreen} label={`${n.label} views`} /></div>;
 }
 
 function useShortcuts() {
@@ -134,7 +114,6 @@ function Shell() {
         <div className="content" id="content" tabIndex={-1}>
           {info ? (
             <Suspense fallback={<div className="page"><Spinner /></div>}>
-              <WorkspaceTabs screen={screen} />
               {guideOpen && <div className="page page--guide"><Guide id={screen} /></div>}
               <Screen id={screen} key={screen.split("/")[0]} />
             </Suspense>

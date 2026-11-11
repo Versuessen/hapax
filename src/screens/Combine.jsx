@@ -14,7 +14,7 @@ import { Button, Card, Checkbox, Dialog, EmptyState, Field, ICON, Input, Notice,
 import { QueryBuilder, corpusOptions, fieldOptions, useCqpPreview } from "../components/QueryBuilder.jsx";
 import { Kwic } from "../components/Kwic.jsx";
 import { BarCell, SERIES } from "../components/charts.jsx";
-import { exportReport } from "./Search.jsx";
+import { exportReport } from "../lib/exportReport.js";
 import { perMillion, rate, safeFileStem, seconds, thousands } from "../lib/format.js";
 import { corpusColor, orderedCorpora, isSearchable } from "../nav.js";
 import { hasQuery, queryLabel } from "../lib/query.js";
@@ -301,153 +301,12 @@ function Builder() {
   );
 }
 
-/** Log-likelihood (G²) for one count pair (Rayson & Garside 2000). */
-export function logLikelihood(a, c, b, d) {
-  const e1 = (c * (a + b)) / (c + d), e2 = (d * (a + b)) / (c + d);
-  const t = (o, e) => (o > 0 ? o * Math.log(o / e) : 0);
-  return 2 * (t(a, e1) + t(b, e2));
-}
-const stars = (ll) => (ll >= 10.83 ? "***" : ll >= 6.63 ? "**" : ll >= 3.84 ? "*" : "");
-
-function Compare() {
-  const { info, run, toast, log, busy, query, search } = useApp();
-  const names = orderedCorpora(info);
-  // Start from what the user is working on: the current search, its corpus as the
-  // reference and its filters on that corpus. They then add the corpora to compare.
-  const [corpora, setCorpora] = useState(() => (isSearchable(info?.corpora?.[query.corpus]) ? [query.corpus] : []));
-  const [q, setQ] = useState(() => ({ ...query, meta_attr: "", meta_value: "", filters: [] }));
-  const [filters, setFilters] = useState(() => {
-    const own = filtersOf(query).filter((f) => f.attr);
-    return own.length ? { [query.corpus]: own } : {};
-  }); // corpus -> document filters for that corpus
-  const [openFilters, setOpenFilters] = useState(null);
-  const [res, setRes] = useState(null);
-  const builderQuery = { ...q, corpus: corpora[0] || q.corpus };
-  const { error } = useCqpPreview(builderQuery);
-  const toggle = (c) => setCorpora((list) => (list.includes(c) ? list.filter((x) => x !== c) : list.length >= 6 ? list : [...list, c]));
-  const active = Object.fromEntries(corpora.map((c) => [c, (filters[c] || []).filter((f) => f.attr)]).filter(([, l]) => l.length));
-  const request = { corpora, query: builderQuery, filters: active };
-  const go = async () => {
-    const out = await run(`Comparing ${corpora.length} corpora`, "run_compare", { request }, { retry: () => go() });
-    if (out) {
-      setRes({ req: request, data: out.data, elapsed: out.elapsed_seconds });
-      log({ label: `Compared “${queryLabel(q)}” in ${corpora.join(", ")}`, detail: seconds(out.elapsed_seconds) });
-    }
-  };
-  const rows = res?.data?.results || [];
-  const ref = rows[0];
-  const related = corpora.includes("BNC") && corpora.includes("BNC-BABY");
-  const units = useUnits(rows.map((r) => r.corpus));
-  const shown = rows.map((r) => units.per(r.total, r.corpus, r.tokens));
-  const max = Math.max(1e-9, ...shown.map((d) => d.value));
-  return (
-    <div className="stack">
-      <Card title="Compare a search across corpora" sub="Runs the same search in each corpus — token-normalised rates, with log-likelihood against the first corpus"
-        actions={<Button variant="primary" icon={Scale} onClick={go} disabled={!!busy || !hasQuery({ ...q, filters: [], meta_value: "" }) || !!error || corpora.length < 2}>Compare</Button>}>
-        <div className="stack" style={{ gap: 14 }}>
-          <div>
-            <div className="field__label" id="cmp-corpora">Corpora <span className="muted">({corpora.length < 2 ? `select ${2 - corpora.length} more` : `${corpora.length} of 6`} · the first is the reference)</span></div>
-            <div className="row" role="group" aria-labelledby="cmp-corpora" style={{ gap: 8, marginTop: 6 }}>
-              {names.map((c) => {
-                const on = corpora.includes(c);
-                const unq = !isSearchable(info?.corpora?.[c]);
-                return (
-                  <button key={c} type="button" className={`chip-toggle${on ? " is-on" : ""}`} aria-pressed={on} disabled={unq || (!on && corpora.length >= 6)} onClick={() => toggle(c)} title={unq ? "Not searchable on this server" : ""}>
-                    <Flag variety={info.corpora[c].variety} note={info.corpora[c].variety_note} size={14} />{c}{on && corpora[0] === c ? " · ref" : ""}
-                  </button>
-                );
-              })}
-            </div>
-            {corpora.length > 0 && <div className="section-label" style={{ marginTop: 14 }}>Only in documents where</div>}
-            {corpora.length > 0 && (
-              <ul className="cmp-filters" aria-label="Document filters per corpus">
-                {corpora.map((c) => {
-                  const list = filters[c] || [];
-                  const desc = list.map(describeFilter).filter(Boolean);
-                  return (
-                    <li key={c}>
-                      <div className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
-                        <span style={{ minWidth: 130, fontWeight: 500 }}>{c}</span>
-                        <span className="muted" style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-mono)" }}>{desc.length ? desc.join(" · ") : "whole corpus"}</span>
-                        <button type="button" className="btn btn--ghost" aria-expanded={openFilters === c} onClick={() => setOpenFilters(openFilters === c ? null : c)}>
-                          {list.length ? "Edit filters" : "Filter"}
-                        </button>
-                      </div>
-                      {openFilters === c && (
-                        <div style={{ padding: "8px 0 4px" }}>
-                          <FilterEditor corpus={c} filters={list} idPrefix={`cf-${c}`} compact onChange={(l) => setFilters((m) => ({ ...m, [c]: l }))} />
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          <QueryBuilder query={builderQuery} onChange={(n) => setQ({ ...n, meta_attr: "", meta_value: "", filters: [] })} onSubmit={go} showCorpus={false} showFilters={false} idPrefix="cmp" allowCqp />
-          {error && <Notice tone="warn">{error}</Notice>}
-          <div className="row">
-            {search?.request && <Button variant="ghost" icon={SearchIcon} onClick={() => {
-              const { offset, limit, context, sort, ...sq } = search.request;
-              setQ({ ...sq, meta_attr: "", meta_value: "", filters: [] });
-              if (!corpora.includes(sq.corpus)) setCorpora((l) => [sq.corpus, ...l].slice(0, 6));
-              const own = filtersOf(sq).filter((f) => f.attr);
-              if (own.length) setFilters((m) => ({ ...m, [sq.corpus]: own })); // the search's filters belong to its corpus
-            }}>Use current search</Button>}
-            <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>Filters are set per corpus, because metadata differs between corpora. Fields such as “lexeme” resolve per corpus.</span>
-          </div>
-        </div>
-        {related && <div style={{ marginTop: 12 }}><Notice tone="warn">BNC-BABY is a subset of the BNC; their rates are not independent evidence.</Notice></div>}
-      </Card>
-      {res && rows.some((r) => r.subcorpus && !r.subcorpus_measured) && (
-        <Notice tone="warn">
-          The size of the filtered part could not be measured for {rows.filter((r) => r.subcorpus && !r.subcorpus_measured).map((r) => r.corpus).join(", ")}: its filters use attributes divided into different regions (for example text and utterance). Matches are filtered, but the rate divides by the whole corpus, so it is too low. Filter on one level, such as text attributes only, for a correct rate.
-        </Notice>
-      )}
-      {res && (
-        <Card flush title={`${rows.length} corpora · reference ${ref?.corpus}`} sub={`${seconds(res.elapsed)} · LL (G², on token counts): * p<.05, ** p<.01, *** p<.001 (3.84 / 6.63 / 10.83). Treats tokens as independent; genre, period and tagging differences still limit inference`}
-          actions={<Button icon={FileDown} onClick={async () => { const p = await saveDialog({ defaultPath: "corpus_comparison.csv" }); if (p) exportReport(toast, log, "Exported comparison", invoke("export_comparison", { path: p, request: res.req, result: res.data })); }}>Export…</Button>}>
-          <div className="table-scroll">
-            <table className="table" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-              <thead><tr><th>Corpus</th><th className="num">Matches</th><th className="num"><button type="button" className="unit-toggle" onClick={units.toggle} title={`${units.unit === "words" ? "Words" : "Tokens"} in the corpus, or in its filtered part. Click to switch to ${units.unit === "words" ? "tokens" : "words"}.`}>{units.unit === "words" ? "Words" : "Tokens"} searched</button></th><th style={{ width: "26%" }}><span className="sr-only">Share</span></th><th className="num"><UnitLabel corpora={rows.map((r) => r.corpus)} prefix="Per million" /></th><th className="num">× ref</th><th className="num">LL vs ref</th></tr></thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const ll = i && ref ? logLikelihood(r.total, r.tokens, ref.total, ref.tokens) : null;
-                  const d = shown[i];
-                  const ratio = i && shown[0]?.value ? d.value / shown[0].value : null;
-                  return (
-                    <tr key={r.corpus}>
-                      <td>
-                        <span className="row" style={{ flexWrap: "nowrap" }}><Flag variety={info?.corpora?.[r.corpus]?.variety} note={info?.corpora?.[r.corpus]?.variety_note} size={14} />{r.corpus}</span>
-                        {r.subcorpus && (
-                          <div className="muted" style={{ fontSize: "var(--fs-micro)", marginTop: 2 }} title={(res.req.filters[r.corpus] || []).map(describeFilter).join("; ")}>
-                            {r.subcorpus_measured ? "filtered part" : "filtered · rate uses whole corpus"}
-                          </div>
-                        )}
-                      </td>
-                      <td className="num">{thousands(r.total)}</td><td className="num">{d.approx ? "≈ " : ""}{thousands(d.n)}</td>
-                      <td><BarCell value={d.value} max={max} color={corpusColor(r.corpus)} /></td>
-                      <td className="num" title={d.approx ? "Estimated: the filtered part's word count is the corpus's share of words applied to its tokens" : undefined}>{d.approx ? "≈ " : ""}{d.value.toFixed(2)}</td>
-                      <td className="num">{i === 0 ? "ref" : ratio != null ? `${ratio.toFixed(2)}×` : "—"}</td>
-                      <td className="num">{i === 0 ? "—" : `${ll.toFixed(2)}${stars(ll)}`}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-export default function Workflows({ sub }) {
+export default function CombineScreen() {
   const { workflow } = useApp();
   return (
     <div className="page">
-      <PageHeader aside={sub === "compare" ? null : workflow.corpus} />
-      {sub === "compare" ? <Compare /> : <Builder />}
+      <PageHeader aside={workflow.corpus} />
+      <Builder />
     </div>
   );
 }

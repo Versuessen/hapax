@@ -10,6 +10,7 @@ import { CORPUS_ORDER, corporaByVariety } from "../nav.js";
 import { Checkbox, Field, ICON, Input, Segmented, Select } from "./ui.jsx";
 import { CodeInput, CqpEditor, useCodes } from "./Suggest.jsx";
 import { hasQuery } from "../lib/query.js";
+import { AskQuestion } from "./AskQuestion.jsx";
 
 export const FIELD_LABELS = {
   word: "Written word",
@@ -104,9 +105,10 @@ export function useCqpPreview(query, enabled = true) {
  * expression and can never become a command.
  */
 export function QueryBuilder({ query, onChange, onSubmit, compact = false, showCorpus = true, showFilters = true, idPrefix = "q", errorId = null, allowCqp = false }) {
-  const { info } = useApp();
+  const { info, asking, setAsking } = useApp();
   const codes = useCodes(query.corpus);
-  const manual = allowCqp && !!query.manual;
+  const ask = allowCqp && asking;
+  const manual = allowCqp && !!query.manual && !ask;
   const [advanced, setAdvanced] = useState(!!query.regex);
   const [formsOpen, setFormsOpen] = useState(false);
   const filters = filtersOf(query);
@@ -133,6 +135,8 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
   // Switching to Write CQP starts from the current search (without filters,
   // which stay in their own section), so a built query can be refined by hand.
   const setMode = async (m) => {
+    setAsking(m === "ask");
+    if (m === "ask") return;
     if ((m === "cqp") === manual) return;
     if (m === "form") return onChange({ ...query, manual: false });
     let cqp = query.cqp || "";
@@ -146,13 +150,8 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
   return (
     <form onSubmit={submit} className="stack" style={{ gap: 14 }}>
       {allowCqp && (
-        <div className="row" style={{ gap: 10 }}>
-          <Segmented small label="How to write the search" value={manual ? "cqp" : "form"} onChange={setMode}
-            options={[["form", "Build"], ["cqp", "Write CQP"]]} />
-          <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>
-            {manual ? "Type a CQP query yourself; suggestions appear as you type." : "Choose fields and values, or switch to writing CQP yourself."}
-          </span>
-        </div>
+        <Segmented small label="How to write the search" value={ask ? "ask" : manual ? "cqp" : "form"} onChange={setMode}
+          options={[["form", "Build"], ["ask", "Ask a question"], ["cqp", "Write CQP"]]} />
       )}
       <div className="form-grid">
         {showCorpus && (
@@ -160,7 +159,7 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
             <Select id={`${idPrefix}-corpus`} value={query.corpus} options={corpusOptions(info)} onChange={(e) => onChange({ ...clearFilters(withFollowers(query, words.map((w) => ({ ...w, field: "word" })))), corpus: e.target.value, field: "word" })} />
           </Field>
         )}
-        {manual ? null : <>
+        {manual || ask ? null : <>
         <Field label="Find by" htmlFor={`${idPrefix}-field`}>
           <Select id={`${idPrefix}-field`} value={query.field} options={fieldOptions(ci)} onChange={(e) => set({ field: e.target.value })} />
         </Field>
@@ -169,15 +168,17 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
             <CodeInput id={`${idPrefix}-value`} data-search-term aria-describedby={errorId || undefined} value={query.value} field={field} codes={codes}
               placeholder={CODE_HINT[field] || "e.g. jury  ·  I/me for either  ·  walk* for any ending"} onChange={(v) => set({ value: v })} spellCheck={false} maxLength={120} />
             {(query.field === "word" || query.field === "lexeme") && (
-              <button type="button" className="btn btn--ghost" aria-expanded={formsOpen} onClick={() => setFormsOpen((o) => !o)} title="Find every form of this word"
-                disabled={!query.value.trim() || /[|/*]/.test(query.value) || /\s/.test(query.value.trim())}>
-                <Sparkles {...ICON} size={14} /> All forms
+              <button type="button" className="btn btn--ghost forms-btn" aria-expanded={formsOpen} onClick={() => setFormsOpen((o) => !o)} title="All forms: find every form of this word"
+                aria-label="All forms" disabled={!query.value.trim() || /[|/*]/.test(query.value) || /\s/.test(query.value.trim())}>
+                <Sparkles {...ICON} size={14} aria-hidden="true" /><span className="forms-btn__label">All forms</span>
               </button>
             )}
           </div>
         </Field>
         </>}
       </div>
+
+      {ask && <AskQuestion corpus={query.corpus} onUse={() => setAsking(false)} />}
 
       {manual && (
         <Field label="CQP query" htmlFor={`${idPrefix}-cqp`}>
@@ -196,11 +197,11 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
         </Field>
       )}
 
-      {!manual && formsOpen && (
+      {!manual && !ask && formsOpen && (
         <FormsHelper query={query} ci={ci} onApply={(patch) => { set(patch); setFormsOpen(false); }} onClose={() => setFormsOpen(false)} />
       )}
 
-      {!manual && words.length > 0 && (
+      {!manual && !ask && words.length > 0 && (
         <ol className="seq" aria-label="Following words">
           {words.map((w, i) => {
             const n = i + 2;
@@ -226,7 +227,7 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
           })}
         </ol>
       )}
-      {!manual && <div className="row" style={{ gap: 10 }}>
+      {!manual && !ask && <div className="row" style={{ gap: 10 }}>
         <button type="button" className="btn btn--ghost" disabled={words.length >= MAX_NEXT}
           onClick={() => {
             setWords([...words, { field: "word", value: "", gap: 0, optional: false }]);
@@ -239,12 +240,12 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
         </span>
       </div>}
 
-      {showFilters && <div className="stack" style={{ gap: 8 }}>
+      {showFilters && !ask && <div className="stack" style={{ gap: 8 }}>
         <div className="section-label">Only in documents where</div>
         <FilterEditor corpus={query.corpus} filters={filters} idPrefix={`${idPrefix}-f`} onChange={(list) => onChange(withFilters(query, list))} />
       </div>}
 
-      {!manual && <div className="row" style={{ gap: 18 }}>
+      {!manual && !ask && <div className="row" style={{ gap: 18 }}>
         <Checkbox label="Ignore case" checked={query.ignore_case} disabled={!foldable} onChange={(v) => set({ ignore_case: v })} title={foldable ? "" : "Case folding works for word, lemma and headword"} />
         <Checkbox label="Within one sentence" checked={query.sentence_only} disabled={!hasS} onChange={(v) => set({ sentence_only: v })} title={hasS ? "" : "This corpus has no sentence attribute"} />
         <span className="spacer" />
@@ -254,7 +255,7 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
         </button>
       </div>}
 
-      {!manual && advanced && (
+      {!manual && !ask && advanced && (
         <div className="stack" style={{ gap: 14, paddingTop: 14, borderTop: "1px solid var(--border-subtle)" }}>
           <div className="row" style={{ gap: 18 }}>
             <Checkbox label="Regex" checked={query.regex} onChange={(v) => set({ regex: v })} title="Treat the first value as a CQP regular expression (max 80 characters)" />
