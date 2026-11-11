@@ -37,7 +37,7 @@ export async function checkForUpdate() {
     return {
       version: "1.0.42",
       current: "1.0.0",
-      notes: "## Search\n- **Write CQP yourself.** Type a CQP query directly; filters still apply.\n- **`*` for any ending.** walk* finds walk, walks, walked.\n## Sidebar\n- **Only the open section stays unfolded.** Opening a page elsewhere folds the section you left.",
+      notes: "- Search · Write CQP yourself: Type a CQP query directly; filters still apply.\n- Search · Star for any ending: walk* finds walk, walks, walked.\n- Sidebar · Only the open section stays unfolded: Opening a page elsewhere folds the section you left.",
       date: new Date().toISOString(),
       install: async (onProgress) => {
         for (let i = 1; i <= 10; i++) { await new Promise((r) => setTimeout(r, 120)); onProgress?.(i / 10); }

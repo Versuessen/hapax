@@ -20,18 +20,26 @@ Pushes that change only Markdown or `docs/` do not trigger a release.
 
 The update notice in the app shows the release notes under **What changed**. They are read by
 people who use Hapax for corpus work, not by developers, so commit subjects are a poor fit.
-Before pushing a change people will notice, rewrite `release-notes.md` for that release:
+Before pushing a change people will notice, rewrite `release-notes.md` for that release.
 
-- Group items under `## ` headings named after the part of the app (Search, Analyse results,
-  Corpora, Sidebar…).
-- One `- ` item per change. Start with a short **bold** name of the change, then one or two
-  sentences: what you can now do or what behaves differently, and where to find it, using the
-  labels on screen.
+**Format: plain text, one line per change.**
+
+```
+- Search · Write CQP yourself: Search has a new switch above the form …
+- Sidebar · Only the open section stays unfolded: Opening a page in another section …
+```
+
+- `Area · Name: explanation`. The area is the part of the app (Search, Analyse results,
+  Corpora, Sidebar…), the name says what changed in a few words, the explanation gives one or
+  two sentences: what you can now do or what behaves differently, and where, using the labels
+  on screen. A fix says what used to go wrong.
+- No Markdown: no `##` headings, `**bold**` or backticks. The notes are shown by the version
+  being *replaced*, and versions up to 1.0.16 print every line exactly as written. Hapax 1.0.17
+  and later turn the area into a heading and the name into bold text, so the same lines look
+  right in both. Write quotation marks instead of backticks: “VV*”.
 - Say what it means for the user's work, not how it was built. Leave out file names, internal
-  terms and refactoring. A fix says what used to go wrong.
-- Keep it short: the notice is a small panel. Five to eight items is plenty.
-
-The app renders `## ` headings, `- ` items, `**bold**` and `` `code` ``; other Markdown shows as plain text.
+  terms and refactoring.
+- Keep it short: the notice is a small panel. Five to eight lines is plenty.
 
 ## How installed copies update
 

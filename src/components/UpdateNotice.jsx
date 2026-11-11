@@ -104,18 +104,26 @@ export function UpdateNotice() {
 }
 
 /**
- * Release notes: `## ` headings, `- ` items (continuation lines join the item)
- * and **bold**. See docs/releasing.md → Writing release notes.
+ * Release notes, one line per change: "- Area · Name: what changed".
+ * Written as plain text so they also read well in older Hapax versions, which
+ * show each line as it is; here the area becomes a heading and the name is
+ * bold. "## " headings and **bold** from older notes still work.
+ * See docs/releasing.md → Writing release notes.
  */
 export function parseNotes(text) {
   const out = [];
   for (const raw of String(text || "").split("\n")) {
     const line = raw.trim();
     if (!line) continue;
-    if (/^#{1,3}\s+/.test(line)) out.push({ kind: "heading", text: line.replace(/^#+\s+/, "") });
-    else if (/^[-*]\s+/.test(line)) out.push({ kind: "item", text: line.replace(/^[-*]\s+/, "") });
-    else if (out.at(-1)?.kind === "item") out.at(-1).text += ` ${line}`;
-    else out.push({ kind: "item", text: line });
+    if (/^#{1,3}\s+/.test(line)) { out.push({ kind: "heading", text: line.replace(/^#+\s+/, "") }); continue; }
+    let body;
+    if (/^[-*]\s+/.test(line)) body = line.replace(/^[-*]\s+/, "");
+    else if (out.at(-1)?.kind === "item") { out.at(-1).text += ` ${line}`; continue; }
+    else body = line;
+    const area = body.match(/^([^·:]{1,40}?)\s+·\s+(.+)$/);
+    if (area) { out.push({ kind: "heading", text: area[1] }); body = area[2]; }
+    const named = body.match(/^([^:*`]{1,70}):\s+(.+)$/);
+    out.push({ kind: "item", text: named ? `**${named[1]}.** ${named[2]}` : body });
   }
   return out;
 }
@@ -123,6 +131,8 @@ export function parseNotes(text) {
 function groupNotes(notes) {
   const groups = [];
   for (const n of notes) {
+    // Consecutive lines of the same area share one heading.
+    if (n.kind === "heading" && groups.at(-1)?.heading === n.text) continue;
     if (n.kind === "heading" || !groups.length) groups.push({ heading: n.kind === "heading" ? n.text : null, items: [] });
     if (n.kind === "item") groups.at(-1).items.push(n.text);
   }
