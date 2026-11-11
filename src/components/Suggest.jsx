@@ -32,13 +32,13 @@ export function useCodes(corpus) {
 }
 
 /** The floating list. `items`: [{ code, label, kind }]. */
-function SuggestList({ id, items, active, onPick, label }) {
+function SuggestList({ id, items, active, onPick, label, more = 0, short = false }) {
   const ref = useRef(null);
   useEffect(() => {
     ref.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [active]);
   return (
-    <ul ref={ref} id={id} className="suggest" role="listbox" aria-label={label}>
+    <ul ref={ref} id={id} className={`suggest${short ? " suggest--short" : ""}`} role="listbox" aria-label={label}>
       {items.map((it, i) => (
         <li key={`${it.kind}:${it.code}`} id={`${id}-${i}`} role="option" aria-selected={i === active}
           className={`suggest__item${it.kind === "group" ? " suggest__item--group" : ""}`}
@@ -47,6 +47,7 @@ function SuggestList({ id, items, active, onPick, label }) {
           {it.label && <span className="suggest__label">{it.label}</span>}
         </li>
       ))}
+      {more > 0 && <li role="presentation" className="suggest__more">{more} more — keep typing to narrow the list</li>}
     </ul>
   );
 }
@@ -155,7 +156,9 @@ export function CqpEditor({ id, value, onChange, info, codes, describedBy }) {
   const [open, setOpen] = useState(false);
   const [caret, setCaret] = useState(value.length);
   const ctx = cqpContext(value, Math.min(caret, value.length));
-  const items = open ? cqpItems(ctx, info, codes).slice(0, 80) : [];
+  // A short list that never needs scrolling: the caret stays in the text, the list follows it.
+  const all = open ? cqpItems(ctx, info, codes) : [];
+  const items = all.slice(0, 8);
   const pick = (it) => {
     const c = cqpContext(value, Math.min(caret, value.length));
     if (!c) return;
@@ -187,7 +190,7 @@ export function CqpEditor({ id, value, onChange, info, codes, describedBy }) {
         onBlur={() => setOpen(false)}
         data-search-term
         onKeyDown={keys.onKeyDown} />
-      {shown && <SuggestList id={listId} items={items} active={keys.active} onPick={pick} label="CQP suggestions" />}
+      {shown && <SuggestList id={listId} items={items} active={keys.active} onPick={pick} label="CQP suggestions" more={all.length - items.length} short />}
     </div>
   );
 }

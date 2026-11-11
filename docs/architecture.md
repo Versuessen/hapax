@@ -40,6 +40,20 @@ local files, the keychain and updates.
 | `guide.rs` | Tagset codebook, plain-language explanations, guided-search recipes |
 | `commands.rs` | The IPC surface (all `#[tauri::command]` functions) |
 
+## Interface structure
+
+| Path | Responsibility |
+|---|---|
+| `src/nav.js` | The six destinations, Search and Corpora views, old-id aliases |
+| `src/commands.js` | Command registry: palette entries, shortcuts, shortcut overview |
+| `src/state/store.jsx` | App state: connection, query, results, evidence, Combine plan, units |
+| `src/lib/uiState.js` | Remembered view state per viewer (`hapax.ui` in localStorage) |
+| `src/screens/` | Home, Search (workspace), Combine, Corpora, Evidence, Help |
+| `src/views/` | Search views (Counts, Nearby, Spread in `Analyses.jsx`; `Compare`, `Structure`) and Corpora › Tags |
+| `src/components/` | Shared UI: query panel, filters, suggestions, top bar, sidebar, dialogs, units |
+
+See `docs/ux-overhaul/` for the reasoning behind this structure.
+
 ## Corpus discovery
 
 On every connect the interface calls `discover_corpora`. The worker lists the registry folder

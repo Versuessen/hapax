@@ -29,7 +29,7 @@ Before pushing a change people will notice, rewrite `release-notes.md` for that 
 - Sidebar · Only the open section stays unfolded: Opening a page in another section …
 ```
 
-- `Area · Name: explanation`. The area is the part of the app (Search, Analyse results,
+- `Area · Name: explanation`. The area is the part of the app (Search, Home,
   Corpora, Sidebar…), the name says what changed in a few words, the explanation gives one or
   two sentences: what you can now do or what behaves differently, and where, using the labels
   on screen. A fix says what used to go wrong.

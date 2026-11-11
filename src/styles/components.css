@@ -239,6 +239,7 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text-1); }
 }
 .kwic__row:hover { background: var(--surface-hover); }
 .kwic__row[aria-selected="true"] { background: var(--selection); }
+.kwic__row[aria-selected="true"] .kwic__n, .kwic__row[aria-selected="true"] .kwic__src { color: var(--text-2); }
 .kwic__row:last-child { border-bottom: 0; }
 .kwic__n, .kwic__src { font-family: var(--font-mono); font-size: var(--fs-mono); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .kwic__src { text-align: right; }
@@ -405,8 +406,8 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text-1); }
 .dl dd { margin: 0; color: var(--text-1); overflow-wrap: anywhere; }
 
 .prose { color: var(--text-2); font-size: var(--fs-body); line-height: 1.6; max-width: 76ch; }
-.prose h3 { color: var(--text-1); font-size: 15px; font-weight: 550; margin: var(--space-6) 0 var(--space-2); }
-.prose h3:first-child { margin-top: 0; }
+.prose h3, .prose .prose__h { color: var(--text-1); font-size: 15px; font-weight: 550; margin: var(--space-6) 0 var(--space-2); }
+.prose h3:first-child, .prose .prose__h:first-child { margin-top: 0; }
 .prose p + p { margin-top: 10px; }
 .prose ul { padding-left: 18px; margin-top: 6px; }
 .prose li + li { margin-top: 4px; }
@@ -672,6 +673,8 @@ th.num .th-sort { flex-direction: row-reverse; }
 .suggest__item[aria-selected="true"], .suggest__item:hover { background: var(--surface-hover); color: var(--text-1); }
 .suggest__code { color: var(--text-1); font-size: var(--fs-mono); }
 .suggest__item--group .suggest__code { color: var(--link, var(--accent-blue)); }
+.suggest--short { max-height: none; overflow: visible; }
+.suggest__more { padding: 6px 10px 4px; font: var(--fs-mono)/1.4 var(--font-mono); color: var(--text-3); }
 .suggest__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .suggest { animation: none; } }
 
@@ -703,7 +706,12 @@ th.num .th-sort { flex-direction: row-reverse; }
   .evidence-layout { grid-template-columns: minmax(0, 1fr) 380px; }
   .evidence-layout__review { position: sticky; top: 0; }
 }
+.batch-bar .muted { color: var(--text-2); }
 .batch-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 8px 16px 8px 24px; border-top: 1px solid var(--border-subtle); background: var(--surface-2); font-size: var(--fs-small); }
 .batch-bar .btn .dot { width: 7px; height: 7px; }
 
 .nav-item__dirty { display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--warning); vertical-align: middle; }
+
+/* Results from an earlier query: full contrast (readable), marked by a warning edge;
+   the result bar says so and paging/exports are disabled. */
+.card.is-stale { box-shadow: inset 3px 0 0 var(--warning); }

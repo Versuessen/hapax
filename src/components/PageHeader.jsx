@@ -39,12 +39,12 @@ export function Guide({ id }) {
       </div>
       <div className="guide__body">
         <div>
-          <h3 className="guide__h">Steps</h3>
+          <h2 className="guide__h">Steps</h2>
           <ol className="guide__steps">{g.steps.map((s) => <li key={s}>{s}</li>)}</ol>
         </div>
         {g.notes.length > 0 && (
           <div>
-            <h3 className="guide__h">Good to know</h3>
+            <h2 className="guide__h">Good to know</h2>
             <ul className="guide__notes">{g.notes.map((s) => <li key={s}>{s}</li>)}</ul>
           </div>
         )}

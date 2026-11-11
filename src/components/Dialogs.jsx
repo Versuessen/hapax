@@ -157,7 +157,7 @@ export function CommandPalette() {
 
   const items = useMemo(() => {
     const out = [];
-    const cmd = (c) => ({ group: c.group, label: c.label, keys: c.keys, run: c.run });
+    const cmd = (c) => ({ group: c.group, label: c.label, keys: c.keys, run: c.run, keywords: c.keywords });
     const usable = commands.filter((c) => c.run && !c.hidden && !c.local && (!c.when || c.when() || c.group === "Search"));
     const order = ["Search", "Go to", "Search views", "Corpora views"];
     order.forEach((g) => usable.filter((c) => c.group === g).forEach((c) => out.push(cmd(c))));
@@ -182,9 +182,18 @@ export function CommandPalette() {
     return out;
   }, [commands, info, prefs, recent, query, setQuery, setScreen, setSearch]);
 
+  // Rank: label starts with the text, then a word of the label does, then anywhere (label, group, keywords).
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    return s ? items.filter((i) => `${i.group} ${i.label}`.toLowerCase().includes(s)) : items;
+    const t = q.trim().toLowerCase();
+    if (!t) return items;
+    const score = (i) => {
+      const l = i.label.toLowerCase();
+      if (l.startsWith(t)) return 0;
+      if (new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(l)) return 1;
+      if (l.includes(t)) return 2;
+      return `${i.group} ${i.keywords || ""}`.toLowerCase().includes(t) ? 3 : 9;
+    };
+    return items.map((i, n) => [score(i), n, i]).filter(([sc]) => sc < 9).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(([, , i]) => i);
   }, [items, q]);
 
   const choose = (i) => {

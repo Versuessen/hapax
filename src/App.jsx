@@ -8,6 +8,7 @@ import { Spinner } from "./components/ui.jsx";
 import { ConsolePanel } from "./components/ConsolePanel.jsx";
 import { UpdateNotice } from "./components/UpdateNotice.jsx";
 import { matches, useCommands } from "./commands.js";
+import { isMac } from "./lib/platform.js";
 import Home from "./screens/Home.jsx";
 import Search from "./screens/Search.jsx";
 
@@ -39,7 +40,8 @@ function useShortcuts() {
         if (!c.run || c.local || !matches(c.keys, e)) continue;
         if (dialog && !c.always) continue;
         if (c.when && !c.when()) continue;
-        const bare = !c.keys.mod && !/^F\d+$/.test(c.keys.key);
+        // Plain keys (and Option+arrows on macOS, which move by word) belong to the field.
+        const bare = !c.keys.mod && !/^F\d+$/.test(c.keys.key) && !(c.keys.alt && !isMac);
         if (typing && bare) continue; // plain keys and Alt+arrows belong to the field
         e.preventDefault();
         c.run();

@@ -4,11 +4,17 @@ Rules the interface follows. Use them when adding a screen or a component.
 
 ## Structure
 
-- **Navigation is ordered by task**, the way research proceeds: *Find examples → Analyse results
-  → Combine searches → Corpora → Evidence notebook*. A new screen goes into the section whose
-  task it serves, not into a section named after its technique.
-- **Every screen has the same header**: title, section tabs (if the section has more than one
-  screen) and a guide (`components/PageHeader.jsx`). The guide text lives in `src/guides.js`.
+- **Navigation is ordered by task**, the way research proceeds: *Home → Search → Combine
+  searches → Corpora → Evidence notebook → Methods & help* — six flat destinations. Anything
+  that works on the current search is a **view of the Search workspace** (a tab beside Matches),
+  not a separate page, so the query and the result stay in view. A corpus fact goes into
+  Corpora (About · Metadata · Tags).
+- **One title**: the top bar names the page; pages add short context with `PageHeader`
+  (portalled into the top bar). Guides open from the top bar's Guide button (`src/guides.js`).
+- **Every command lives in `src/commands.js`**: if it has a shortcut, the palette, the shortcut
+  overview and Help list it automatically.
+- **View settings are remembered** with `useUiState` (`src/lib/uiState.js`), never in the
+  backend preferences.
 - Labels name the task (“Spread across texts”), not the implementation (“Distribution”).
 
 ## Writing

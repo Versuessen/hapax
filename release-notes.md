@@ -1,8 +1,8 @@
-- Search · Write CQP yourself: Search has a new switch above the form. “Build” is the form you know; “Write CQP” lets you type a CQP query directly, for example [pos="VV.*"] [pos="AT0"]. Switching over fills in the search you had built. Your filters still apply, and anything that would run a server command is refused with an explanation.
-- Search · Suggestions while you type: In a Value box set to Part of speech (or another tag field), type a tag or what it means, such as “verb” or “plural noun”, and pick from the list, including whole groups like VV*. After | or / the list opens again. When writing CQP, it suggests attribute names, tags and keywords.
-- Search · Star for any ending: walk* finds walk, walks, walked…; VV* (or VV.*) finds every tag starting with VV. This also works in filter values, e.g. W:ac* for every academic genre.
-- Search · Slash works like |: I/me now finds either word, just like I|me.
-- Search · Search with filters only: Leave the value empty, add a filter (for example author sex is female) and press Search to list every word of those documents. In Write CQP, [] does the same.
-- Rates and sizes · Per million tokens or words: Click any “per million tokens” label or a corpus size such as “112M tokens” to switch the whole app to words (punctuation left out) and back. Parts of a corpus get an estimate, marked ≈.
-- Sidebar · Only the open section stays unfolded: Opening a page in another section now folds the section you came from.
-- Updates · Readable update notes: This list now reads well in every version of Hapax, with each change named and explained in plain words.
+- Search · One workspace for searching and analysing: The query stays on the left while the results sit on the right, with tabs for Matches, Counts, Nearby, Spread, Compare and Structure. Switching tabs keeps every result, so you can go back and forth without running anything again.
+- Search · Ask a question moved into the query panel: Guided search is now the “Ask a question” switch next to Build and Write CQP. Pick a question and choose “Use this search”.
+- Search · Compare uses your search: Compare runs the search from the query panel in the corpora you tick (your choice is remembered). To compare a different search, change it on the left.
+- Home · All saved and recent searches: Home now lists every saved search and the last 20 searches, each with Run and Load. Deleting a saved search can be undone. The separate Saved page is gone.
+- Corpora · Tags and metadata in one place: Corpora has three tabs for the selected corpus: About, Metadata and Tags (the former Tag reference).
+- Evidence notebook · Review beside the list, several at once: The selected example and its note stay on the right. Tick several examples to mark or remove them together (Undo brings them back). Use the arrow keys to move between examples.
+- Navigation · Simpler menu and always-visible corpus: The sidebar has six entries without sub-menus, and the working corpus is chosen at the top right at every window size. Page guides are closed until you press Guide.
+- Keyboard · More shortcuts and a list of them: Press ? to see every shortcut. Ctrl+1 to Ctrl+6 switch result tabs, Ctrl+Shift+Enter runs the open tab, Alt+arrow keys turn pages. Ctrl+K now also runs commands, for example “Run the search”.

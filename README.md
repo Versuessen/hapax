@@ -39,7 +39,8 @@ The name comes from *hapax legomenon*: a word that occurs only once in a corpus.
 
 ## Features
 
-**Find examples**
+**Search workspace** — the query panel on the left, the result views on the right (Matches,
+Counts, Nearby, Spread, Compare, Structure), so the query, the total and every result stay in view.
 - Search by written word, all forms of a word (lexeme), part-of-speech tag or any other
   annotation the corpus has. Tag fields suggest codes as you type a tag or its meaning
   (“verb” → `VV*`, `VVB`, …); `*` stands for any ending and `|` or `/` separates alternatives.
@@ -56,17 +57,15 @@ The name comes from *hapax legomenon*: a word that occurs only once in a corpus.
 - Sort the whole result on the server by the match, the word before or the word after, and
   jump straight to match *N* in a long list.
 - Rates **per million tokens or per million words**: select any rate or corpus size to switch.
-- Guided search builds a query from a plain-language question, translating categories such
+- **Ask a question** builds a query from a plain-language question, translating categories such
   as “noun” into each corpus's own tagset.
-
-**Analyse results**
-- **Count by annotation:** break every match down by POS, lemma or word form — counting any word
+- **Counts:** break every match down by POS, lemma or word form — counting any word
   of a phrase or the whole matched phrase, in one corpus or several side by side, each with its
   own filters.
-- **Nearby words:** positional counts four words either side.
-- **Spread across texts:** matches per genre, period, speaker or file, each normalised by that
+- **Nearby:** positional counts four words either side.
+- **Spread:** matches per genre, period, speaker or file, each normalised by that
   group's own size. Brown-family file ids roll up into the A–R genre categories.
-- **Compare corpora:** run one search in two to six corpora or filtered parts of them, with
+- **Compare:** run the search in two to six corpora or filtered parts of them, with
   per-million rates (against the filtered size) and log-likelihood against a reference.
 - **Combine searches:** refine results and join them with union, intersection or difference.
 
@@ -120,11 +119,11 @@ key built into the app. On Linux the package manager asks for your password.
 1. **Connect.** Select the connection status in the top bar, enter your university username
    and password, and confirm the server's host key the first time. You can store the password
    in your system keychain (Windows Credential Manager, KWallet or GNOME Keyring).
-2. **Choose a corpus** under *Working corpus* in the sidebar (on narrower windows, with the corpus
-   switcher in the top bar).
-3. **Search.** In *Find examples → Search*, choose what to match and type a value. Select
-   *Add word* to search for a phrase. Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>.
-4. **Analyse.** The *Analyse results* screens work on your current search.
+2. **Choose a corpus** with the corpus switcher at the top right.
+3. **Search.** In *Search*, choose what to match and type a value (or *Ask a question*, or
+   *Write CQP*). Select *Add word* to search for a phrase. Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>.
+4. **Analyse.** The tabs beside *Matches* — *Counts*, *Nearby*, *Spread*, *Compare* — work on the
+   current search; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> runs the open one.
 
 ### Example: *you and I* or *you and me*?
 
@@ -132,10 +131,10 @@ To see how often each variant appears in British and American English of the 196
 
 1. In *Search*, set *Value* to `you`, then *Add word* → `and`, *Add word* → `I|me`, and tick
    *Ignore case*.
-2. Open *Analyse results → Compare corpora*, select *Use current search*, and select
-   BROWN-LEGACY, LOB-LEGACY, FROWN-LEGACY and FLOB-LEGACY.
-3. Select *Compare*. To split *I* from *me*, open *Count by annotation*, group by *Written word*
-   and count the *Last token*.
+2. With BROWN-LEGACY as the corpus, run the search, open the *Compare* tab and tick
+   LOB-LEGACY, FROWN-LEGACY and FLOB-LEGACY.
+3. Select *Compare*. To split *I* from *me*, open *Counts*, group by *Written word* and count
+   *Word 3*.
 
 The same search, copied from *Query* (under the search form) as *cqp> prompt*:
 
@@ -150,10 +149,15 @@ group Hits matchend word;
 
 | Keys | Action |
 |---|---|
-| <kbd>Ctrl</kbd>+<kbd>K</kbd> | Go to a screen, corpus, saved or recent search |
-| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | Run the current search |
-| <kbd>Ctrl</kbd>+<kbd>S</kbd> | Save the current search |
-| <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>7</kbd> | Go to a section |
+| <kbd>Ctrl</kbd>+<kbd>K</kbd> | Command palette: run a command, go to a view, corpus, saved or recent search |
+| <kbd>?</kbd> | List every shortcut |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | Run the search |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> | Run the open result view (Count, Compare, Inspect) |
+| <kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>6</kbd> | Matches, Counts, Nearby, Spread, Compare, Structure |
+| <kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>→</kbd> | Previous / next page of matches |
+| <kbd>Ctrl</kbd>+<kbd>S</kbd> | Save the search (on Evidence: save the notebook) |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> | Add the page of matches to the evidence notebook |
+| <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>6</kbd> | Home, Search, Combine, Corpora, Evidence, Help |
 | <kbd>Ctrl</kbd>+<kbd>`</kbd> | Show or hide the request console |
 | <kbd>F1</kbd> | Methods & help |
 

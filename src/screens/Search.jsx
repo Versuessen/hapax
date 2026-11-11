@@ -261,7 +261,7 @@ export default function Search() {
     }
     return (
       <div className="stack">
-        <Card flush style={stale ? { opacity: 0.55 } : undefined}>
+        <Card flush className={stale ? "is-stale" : ""}>
           <div className="card__head card__head--pad view-controls">
             <div className="row" style={{ gap: 8 }}>
               <Select small aria-label="Sort order" title="Sorted on the server, so paging and exports follow this order" value={sort}
