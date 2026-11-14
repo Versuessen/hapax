@@ -84,7 +84,7 @@ Events: `ssh://host-key-prompt`, `ssh://connection`, `console://entry`.
 | Search value | 1–120 characters (regex: 80) |
 | Words in a sequence | 9, gap 0–10 each, 12 alternatives per word |
 | Workflow steps | 12 |
-| Export rows | 5,000 |
+| Export rows | 250,000 per export, fetched 5,000 per request |
 | Distribution: matches assigned to values | 200,000 |
 | Worker reply | 8 MB |
 | Metadata attributes decoded | ≤ 10,000 regions |

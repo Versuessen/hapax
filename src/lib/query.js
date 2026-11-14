@@ -22,5 +22,5 @@ export function queryLabel(q, max = 60) {
     return `CQP ${t.length > max ? `${t.slice(0, max - 1)}…` : t}`;
   }
   if (!q.value?.trim()) return followersOf(q).some((t) => t.value.trim()) ? "any word, then …" : "every word";
-  return `${q.field || "word"} = ${q.value}${q.ignore_case ? " %c" : ""}`;
+  return `${q.field || "word"} ${q.negate ? "≠" : "="} ${q.value}${q.ignore_case ? " %c" : ""}`;
 }

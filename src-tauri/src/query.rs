@@ -69,6 +69,9 @@ pub struct QuerySpec {
     pub manual: bool,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub cqp: String,
+    /// The first word is anything *but* `value` (`!=`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub negate: bool,
 }
 
 /// One document/region filter on a structural attribute with values.
@@ -167,11 +170,14 @@ pub struct NextToken {
     pub gap: i64,
     /// The word may be missing (`[...]?`). Not allowed on the last word.
     pub optional: bool,
+    /// The word is anything *but* `value` (`!=`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub negate: bool,
 }
 
 impl Default for NextToken {
     fn default() -> Self {
-        Self { field: "word".into(), value: String::new(), gap: 0, optional: false }
+        Self { field: "word".into(), value: String::new(), gap: 0, optional: false, negate: false }
     }
 }
 
@@ -198,6 +204,7 @@ impl Default for QuerySpec {
             filters: Vec::new(),
             manual: false,
             cqp: String::new(),
+            negate: false,
         }
     }
 }
@@ -277,7 +284,7 @@ pub fn literal_alternatives(value: &str) -> AppResult<String> {
 pub fn followers(q: &QuerySpec) -> Vec<NextToken> {
     let mut out = Vec::new();
     if !q.second_value.trim().is_empty() {
-        out.push(NextToken { field: q.second_field.clone(), value: q.second_value.clone(), gap: q.gap, optional: false });
+        out.push(NextToken { field: q.second_field.clone(), value: q.second_value.clone(), gap: q.gap, optional: false, negate: false });
     }
     out.extend(q.next.iter().filter(|t| !t.value.trim().is_empty()).cloned());
     out
@@ -378,6 +385,11 @@ pub fn build_query_marked(q: &QuerySpec, target: Option<usize>) -> AppResult<Com
         return invalid("Case folding is supported for word, lemma and headword searches");
     }
     let mark = |n: usize| if target == Some(n) { "@" } else { "" };
+    let negate = q.negate && !any_first;
+    let op = if negate { "!=" } else { "=" };
+    if (negate || any_first) && !rest.is_empty() && rest.iter().all(|t| t.negate) && legacy.is_none() && active.is_empty() {
+        return invalid("Every word of this search is a “not” word, so it would match almost every stretch of the corpus. Make at least one word something to find, or add a filter under “Only in documents where”.");
+    }
 
     // Nothing to match but filters: every word of the filtered documents,
     // tested word by word (see the manual branch above).
@@ -393,14 +405,37 @@ pub fn build_query_marked(q: &QuerySpec, target: Option<usize>) -> AppResult<Com
         return Ok(CompiledQuery { corpus: q.corpus.clone(), expression, field });
     }
 
+    let first_value = if any_first {
+        String::new()
+    } else {
+        let value = clean_value(&q.value, q.regex)?;
+        if q.regex { value } else { literal_alternatives(&value)? }
+    };
+
+    // "not X" alone: every word but X. Without filters that is almost the whole
+    // corpus, so it needs a filter, which is then tested on each word.
+    if negate && rest.is_empty() {
+        let t = terms("_")?;
+        if t.is_empty() {
+            return invalid(format!(
+                "“not {}” alone would match almost every word of the corpus. Add a word before or after it (Add word), or a filter under “Only in documents where”.",
+                q.value.trim()
+            ));
+        }
+        let mut expression = format!("{}[{field}!=\"{first_value}\"{flag} & {}]", mark(1), t.join(" & "));
+        if q.sentence_only {
+            if !info.structural.contains_key("s") {
+                return invalid("This corpus has no sentence structural attribute");
+            }
+            expression.push_str(" within s");
+        }
+        return Ok(CompiledQuery { corpus: q.corpus.clone(), expression, field });
+    }
+
     let mut expression = if any_first {
         format!("{}[]", mark(1))
     } else {
-        let mut value = clean_value(&q.value, q.regex)?;
-        if !q.regex {
-            value = literal_alternatives(&value)?;
-        }
-        format!("{}[{field}=\"{value}\"{flag}]", mark(1))
+        format!("{}[{field}{op}\"{first_value}\"{flag}]", mark(1))
     };
 
     if let Some(t) = target {
@@ -429,7 +464,8 @@ pub fn build_query_marked(q: &QuerySpec, target: Option<usize>) -> AppResult<Com
             expression.push_str(&format!(" []{{0,{}}}", t.gap));
         }
         let opt = if t.optional { "?" } else { "" };
-        expression.push_str(&format!(" {}[{f}=\"{v}\"{fl}]{opt}", mark(word_no)));
+        let op = if t.negate { "!=" } else { "=" };
+        expression.push_str(&format!(" {}[{f}{op}\"{v}\"{fl}]{opt}", mark(word_no)));
     }
     if q.sentence_only {
         if !info.structural.contains_key("s") {
@@ -452,6 +488,9 @@ pub fn describe(q: &QuerySpec) -> String {
     }
     if q.value.trim().is_empty() {
         return if followers(q).is_empty() { "every word".into() } else { "any word".into() };
+    }
+    if q.negate {
+        return format!("not {}", py_repr(&q.value));
     }
     py_repr(&q.value)
 }
@@ -1077,6 +1116,32 @@ mod manual_and_wildcard_tests {
         assert!(build_query(&q).is_err());
         let f = MetaFilter { attr: "text_genre".into(), op: "is".into(), value: "W:ac*".into(), ..Default::default() };
         assert_eq!(filter_constraint(&f, "BNC").unwrap(), "match.text_genre=\"W:ac.*\"");
+    }
+
+    #[test]
+    fn not_words() {
+        let mut q = bnc();
+        q.value = "very".into();
+        q.next = vec![NextToken { field: "pos".into(), value: "AJ*".into(), negate: true, ..Default::default() }];
+        assert_eq!(build_query(&q).unwrap().expression, "[word=\"very\"] [pos!=\"AJ.*\"]");
+        // a lone "not" word needs a filter, which is tested on each word
+        let mut lone = bnc();
+        lone.value = "the".into();
+        lone.negate = true;
+        lone.ignore_case = true;
+        assert!(build_query(&lone).unwrap_err().to_string().contains("almost every word"));
+        lone.filters = vec![female()];
+        assert_eq!(build_query(&lone).unwrap().expression, "[word!=\"the\" %c & _.text_author_sex=\"Female\"]");
+        // every word negated, no filter: refused
+        lone.filters.clear();
+        lone.next = vec![NextToken { value: "a".into(), negate: true, ..Default::default() }];
+        assert!(build_query(&lone).unwrap_err().to_string().contains("not"));
+        // a "not" first word followed by a normal word is fine
+        lone.next[0].negate = false;
+        assert_eq!(build_query(&lone).unwrap().expression, "[word!=\"the\" %c] [word=\"a\" %c]");
+        assert_eq!(describe(&lone), "not 'the'");
+        // saved searches without the flag stay unchanged
+        assert!(!serde_json::to_string(&q).unwrap().contains("\"negate\":false"));
     }
 
     #[test]

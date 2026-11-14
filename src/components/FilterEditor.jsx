@@ -5,16 +5,22 @@ import { MAX_FILTERS } from "../lib/filters.js";
 import { thousands } from "../lib/format.js";
 import { ICON, Input, Select } from "./ui.jsx";
 import { FilterPresets } from "./FilterPresets.jsx";
+import { ComboBox } from "./Suggest.jsx";
 
 const MAX_LISTED_REGIONS = 10000; // same limit as the backend's metadata decoding
 const valueCache = new Map(); // `${corpus}/${attr}` -> [{ value, regions, tokens }]
 
-/** "text_publication_date" -> "Publication date · text_publication_date". */
-export function attrLabel(a) {
+/** "text_publication_date" -> "Publication date". */
+export function attrName(a) {
   let words = a.split("_").filter(Boolean);
   if (words[0] === "text" && words.length > 2) words = words.slice(1); // text_publication_date -> publication date
   const EXPAND = { u: "utterance", s: "sentence", n: "number of", rec: "recording", id: "ID", cefr: "CEFR" };
-  const human = words.map((w) => EXPAND[w] ?? w).join(" ").replace(/^\w/, (c) => c.toUpperCase());
+  return words.map((w) => EXPAND[w] ?? w).join(" ").replace(/^\w/, (c) => c.toUpperCase());
+}
+
+/** "text_publication_date" -> "Publication date · text_publication_date". */
+export function attrLabel(a) {
+  const human = attrName(a);
   return human.toLowerCase() === a.replace(/_/g, " ").toLowerCase() && !/_/.test(a) ? a : `${human} · ${a}`;
 }
 
@@ -31,6 +37,7 @@ export function FilterEditor({ corpus, filters, onChange, idPrefix = "flt", comp
   const ci = info?.corpora?.[corpus];
   const attrs = ci?.metadata || [];
   const [open, setOpen] = useState(null); // index of the row whose value list is open
+  const attrOptions = useMemo(() => attrs.map((a) => ({ value: a, label: attrName(a) })), [attrs]);
   const set = (i, patch) => onChange(filters.map((f, j) => (j === i ? { ...f, ...patch } : f)));
 
   if (!attrs.length) {
@@ -40,8 +47,8 @@ export function FilterEditor({ corpus, filters, onChange, idPrefix = "flt", comp
     <div className="stack" style={{ gap: 8 }}>
       {filters.map((f, i) => (
         <div key={i} className="filter-row">
-          <Select small aria-label={`Filter ${i + 1}: attribute`} value={f.attr} options={[["", "Choose attribute…"], ...attrs.map((a) => [a, attrLabel(a)])]}
-            onChange={(e) => { set(i, { attr: e.target.value, value: "" }); setOpen(null); }} />
+          <ComboBox small id={`${idPrefix}-a${i}`} label={`Filter ${i + 1}: attribute`} value={f.attr} options={attrOptions} placeholder="Attribute — type to search"
+            onChange={(a) => { if (a !== f.attr) set(i, { attr: a, value: "" }); setOpen(null); }} />
           <Select small aria-label={`Filter ${i + 1}: condition`} value={f.op || "is"} options={OPS} onChange={(e) => set(i, { op: e.target.value })} />
           {f.op === "years" ? (
             <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>

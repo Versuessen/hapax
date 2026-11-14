@@ -151,19 +151,26 @@ function compile(q) {
   if (anyFirst && !rest.length && !terms("match").length) throw { kind: "validation", message: "Type a value to search for — or leave it empty and add a filter under “Only in documents where” to list every word of those documents." };
   if (q.ignore_case && !anyFirst && !["word", "lemma", "hw"].includes(field)) throw { kind: "validation", message: "Case folding is supported for word, lemma and headword searches" };
   if (anyFirst && !rest.length) return { corpus: q.corpus, expression: `[${terms("_").join(" & ")}]${q.sentence_only ? " within s" : ""}`, field };
+  const negate = !!q.negate && !anyFirst;
+  if ((negate || anyFirst) && rest.length && rest.every((t) => t.negate) && !terms("match").length)
+    throw { kind: "validation", message: "Every word of this search is a “not” word, so it would match almost every stretch of the corpus. Make at least one word something to find, or add a filter under “Only in documents where”." };
   const alt = (v) => {
     const parts = v.trim().split(/[|/]/).map((x) => x.trim());
     if (parts.some((x) => !x)) throw { kind: "validation", message: "Alternatives need a word on both sides of | or / (for example I|me or I/me)" };
     return parts.length > 1 ? `(${parts.map(glob).join("|")})` : glob(parts[0]);
   };
-  let e = anyFirst ? "[]" : `[${field}="${q.regex ? value : alt(value)}"${q.ignore_case ? " %c" : ""}]`;
+  if (negate && !rest.length) {
+    if (!terms("_").length) throw { kind: "validation", message: `“not ${value.trim()}” alone would match almost every word of the corpus. Add a word before or after it (Add word), or a filter under “Only in documents where”.` };
+    return { corpus: q.corpus, expression: `[${field}!="${q.regex ? value : alt(value)}"${q.ignore_case ? " %c" : ""} & ${terms("_").join(" & ")}]${q.sentence_only ? " within s" : ""}`, field };
+  }
+  let e = anyFirst ? "[]" : `[${field}${negate ? "!=" : "="}"${q.regex ? value : alt(value)}"${q.ignore_case ? " %c" : ""}]`;
   if (rest.length > 8) throw { kind: "validation", message: "A sequence can have at most 9 words" };
   rest.forEach((t, i) => {
     let f2 = t.field || "word";
     if (f2 === "lexeme") f2 = info.lexeme;
     const gap = Number(t.gap || 0);
     if (t.optional && i === rest.length - 1) throw { kind: "validation", message: `Word ${i + 2} is the last word, so it can't be optional (CQP would always leave it out). Remove it instead.` };
-    e += (gap ? ` []{0,${gap}}` : "") + ` [${f2}="${alt(t.value)}"${q.ignore_case && ["word", "lemma", "hw"].includes(f2) ? " %c" : ""}]${t.optional ? "?" : ""}`;
+    e += (gap ? ` []{0,${gap}}` : "") + ` [${f2}${t.negate ? "!=" : "="}"${alt(t.value)}"${q.ignore_case && ["word", "lemma", "hw"].includes(f2) ? " %c" : ""}]${t.optional ? "?" : ""}`;
   });
   if (q.sentence_only) e += " within s";
   const cons = terms("match");
@@ -414,8 +421,15 @@ const remote = {
 const files = {
   export_table: ({ path, rows }) => ({ path, rows: rows.length, total: null, provenance_path: null }),
   export_concordance_page: ({ path, rows, total }) => ({ path, rows: rows.length, total, provenance_path: path.replace(/\.\w+$/, "_provenance.json") }),
-  export_search_all: ({ path, request }) => { const t = totalFor(request); return { path, rows: Math.min(5000, t), total: t, provenance_path: path.replace(/\.\w+$/, "_provenance.json") }; },
-  export_workflow_all: ({ path }) => ({ path, rows: 67, total: 67, provenance_path: path.replace(/\.\w+$/, "_provenance.json") }),
+  // Mirrors commands.rs: requests of 5,000 rows up to max (default 5,000, at most 250,000), with progress events.
+  export_search_all: async ({ path, request, max }) => {
+    const t = totalFor(request);
+    const target = Math.min(t, Math.max(1, Math.min(max ?? 5000, 250000)));
+    for (let done = 0; done < target;) { done = Math.min(target, done + 5000); emit("export://progress", { done, target }); await new Promise((r) => setTimeout(r, 120)); }
+    window.__hapaxLastExport = { cmd: "export_search_all", max, rows: target };
+    return { path, rows: target, total: t, provenance_path: path.replace(/\.\w+$/, "_provenance.json") };
+  },
+  export_workflow_all: ({ path, max }) => { const rows = Math.min(67, max ?? 5000); window.__hapaxLastExport = { cmd: "export_workflow_all", max, rows }; return { path, rows, total: 67, provenance_path: path.replace(/\.\w+$/, "_provenance.json") }; },
   export_workflow_view: ({ path, result }) => ({ path, rows: (result.results || result.groups || []).length, total: result.total, provenance_path: path.replace(/\.\w+$/, "_provenance.json") }),
   export_comparison: ({ path }) => ({ path, rows: 2, total: null, provenance_path: path.replace(/\.\w+$/, "_provenance.json") }),
   export_syntax: ({ path }) => path,

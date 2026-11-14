@@ -187,7 +187,7 @@ export function Topbar() {
             aria-pressed={consoleOpen} onClick={() => setConsoleOpen((o) => !o)} />
           {consoleErrors > 0 && <span className="badge-dot" aria-hidden="true" />}
         </div>
-        <Button variant="ghost" icon={Keyboard} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setDialog("shortcuts")} />
+        <Button variant="ghost" className="topbar__kbd" icon={Keyboard} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setDialog("shortcuts")} />
         <ThemeMenu />
       </div>
     </header>

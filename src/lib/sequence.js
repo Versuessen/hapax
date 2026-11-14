@@ -5,7 +5,7 @@ export const MAX_NEXT = 8;
 export function followersOf(q) {
   const out = [];
   if (q?.second_value?.trim()) out.push({ field: q.second_field || "word", value: q.second_value, gap: Number(q.gap || 0), optional: false });
-  for (const t of q?.next || []) out.push({ field: t.field || "word", value: t.value ?? "", gap: Number(t.gap || 0), optional: !!t.optional });
+  for (const t of q?.next || []) out.push({ field: t.field || "word", value: t.value ?? "", gap: Number(t.gap || 0), optional: !!t.optional, ...(t.negate ? { negate: true } : {}) });
   return out;
 }
 
@@ -17,5 +17,5 @@ export function withFollowers(q, list) {
 export function describeFollowers(q) {
   return followersOf(q)
     .filter((t) => t.value.trim())
-    .map((t) => `${t.gap ? `within ${t.gap} → ` : "then "}${t.field} “${t.value}”${t.optional ? " (optional)" : ""}`);
+    .map((t) => `${t.gap ? `within ${t.gap} → ` : "then "}${t.negate ? "not " : ""}${t.field} “${t.value}”${t.optional ? " (optional)" : ""}`);
 }

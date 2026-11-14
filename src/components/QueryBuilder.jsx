@@ -55,7 +55,8 @@ function cqpExamples(ci) {
   if (has("pos")) out.push([ci.lexeme === "hw" ? '[pos="VV.*"] [pos="AT0"]' : '[pos="VB.*"] [pos="DT"]', "a verb, then an article or determiner"]);
   if (ci.lexeme) out.push([`[${ci.lexeme}="time"] within s`, "every form of “time”, within a sentence"]);
   out.push(['"very" [] "good"', "very, any one word, good"]);
-  if (ci.metadata?.length) out.push(["[]", "every word — add a filter below to choose the documents"]);
+  out.push([has("pos") ? (ci.lexeme === "hw" ? '"very" [pos!="AJ.*"]' : '"very" [pos!="JJ.*"]') : '"very" [word!="good"]', "very, then a word that is not an adjective"]);
+  if (ci.metadata?.length) out.push(["[]", "every word of the documents chosen by a filter below"]);
   return out;
 }
 
@@ -134,11 +135,19 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
 
   // Switching to Write CQP starts from the current search (without filters,
   // which stay in their own section), so a built query can be refined by hand.
+  // Each mode is set outright: leaving "Ask a question" must not depend on
+  // which of Build / Write CQP was showing before it (query.manual is kept).
   const setMode = async (m) => {
     setAsking(m === "ask");
     if (m === "ask") return;
-    if ((m === "cqp") === manual) return;
-    if (m === "form") return onChange({ ...query, manual: false });
+    if (m === "form") {
+      if (query.manual) onChange({ ...query, manual: false });
+      return;
+    }
+    if (query.manual) {
+      setTimeout(() => document.getElementById(`${idPrefix}-cqp`)?.focus(), 0);
+      return;
+    }
     let cqp = query.cqp || "";
     if (!cqp.trim() && (query.value?.trim() || words.some((w) => w.value.trim()))) {
       cqp = await invoke("preview_query", { query: { ...query, manual: false, filters: [], meta_attr: "", meta_value: "" } }).then((p) => p.expression).catch(() => "");
@@ -165,11 +174,12 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
         </Field>
         <Field label="Value" htmlFor={`${idPrefix}-value`}>
           <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
+            <NotToggle on={!!query.negate} onChange={(v) => set({ negate: v })} what="this word" />
             <CodeInput id={`${idPrefix}-value`} data-search-term aria-describedby={errorId || undefined} value={query.value} field={field} codes={codes}
               placeholder={CODE_HINT[field] || "e.g. jury  ·  I/me for either  ·  walk* for any ending"} onChange={(v) => set({ value: v })} spellCheck={false} maxLength={120} />
             {(query.field === "word" || query.field === "lexeme") && (
               <button type="button" className="btn btn--ghost forms-btn" aria-expanded={formsOpen} onClick={() => setFormsOpen((o) => !o)} title="All forms: find every form of this word"
-                aria-label="All forms" disabled={!query.value.trim() || /[|/*]/.test(query.value) || /\s/.test(query.value.trim())}>
+                aria-label="All forms" disabled={!!query.negate || !query.value.trim() || /[|/*]/.test(query.value) || /\s/.test(query.value.trim())}>
                 <Sparkles {...ICON} size={14} aria-hidden="true" /><span className="forms-btn__label">All forms</span>
               </button>
             )}
@@ -184,15 +194,20 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
         <Field label="CQP query" htmlFor={`${idPrefix}-cqp`}>
           <CqpEditor id={`${idPrefix}-cqp`} value={query.cqp || ""} onChange={(v) => set({ cqp: v })} info={ci} codes={codes}
             describedBy={[`${idPrefix}-cqp-help`, errorId].filter(Boolean).join(" ")} />
-          <div id={`${idPrefix}-cqp-help`} className="field__hint">
-            Values in quotes are regular expressions: <code>VV.*</code> is every code starting VV. <code>[]</code> is any word — with a
-            filter below, every word of those documents. One query only: commands and <code>;</code> are refused.
-          </div>
-          <div className="row" style={{ gap: 6, marginTop: 6 }}>
-            <span className="muted" style={{ fontSize: "var(--fs-mono)" }}>Examples:</span>
-            {cqpExamples(ci).map(([q, t]) => (
-              <button key={q} type="button" className="chip-toggle mono" title={t} onClick={() => set({ cqp: q })}>{q}</button>
-            ))}
+          <div className="cqp-help">
+            <span id={`${idPrefix}-cqp-help`} className="field__hint">
+              Values are regex · <code>[]</code> any word · <code>!=</code> not
+            </span>
+            <details className="cqp-help__more">
+              <summary>Examples</summary>
+              <ul className="cqp-help__list">
+                {cqpExamples(ci).map(([q, t]) => (
+                  <li key={q}><button type="button" className="cqp-help__ex" onClick={() => set({ cqp: q })}>
+                    <code>{q}</code><span>{t}</span>
+                  </button></li>
+                ))}
+              </ul>
+            </details>
           </div>
         </Field>
       )}
@@ -213,9 +228,12 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
                 <Select small aria-label={`Word ${n}: position`} value={String(w.gap)} onChange={(e) => setWord(i, { gap: Number(e.target.value) })}
                   options={[["0", "right after"], ...Array.from({ length: 10 }, (_, k) => [String(k + 1), `within ${k + 1} word${k ? "s" : ""}`])]} />
                 <Select small aria-label={`Word ${n}: find by`} value={w.field} options={fieldOptions(ci)} onChange={(e) => setWord(i, { field: e.target.value })} />
-                <CodeInput id={`${idPrefix}-w${n}`} aria-label={`Word ${n}: value`} value={w.value} spellCheck={false} maxLength={120} field={f} codes={codes}
-                  placeholder={CODE_HINT[f] || "e.g. and  ·  I/me"}
-                  onChange={(v) => setWord(i, { value: v })} />
+                <div className="seq__value">
+                  <NotToggle on={!!w.negate} onChange={(v) => setWord(i, { negate: v })} what={`word ${n}`} />
+                  <CodeInput id={`${idPrefix}-w${n}`} aria-label={`Word ${n}: value`} value={w.value} spellCheck={false} maxLength={120} field={f} codes={codes}
+                    placeholder={CODE_HINT[f] || "e.g. and  ·  I/me"}
+                    onChange={(v) => setWord(i, { value: v })} />
+                </div>
                 <Checkbox label="Optional" checked={w.optional} disabled={last && !w.optional} onChange={(v) => setWord(i, { optional: v })}
                   title={last ? "The last word can't be optional — remove it instead" : "Match with or without this word"} />
                 <button type="button" className="btn btn--ghost btn--icon" aria-label={`Remove word ${n}`} title="Remove word"
@@ -265,6 +283,19 @@ export function QueryBuilder({ query, onChange, onSubmit, compact = false, showC
       )}
       <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
     </form>
+  );
+}
+
+/**
+ * "not": the word is anything but the value (CQP `!=`). A lone "not" word
+ * needs a filter or another word, or it would match almost the whole corpus.
+ */
+function NotToggle({ on, onChange, what }) {
+  return (
+    <button type="button" className={`not-toggle${on ? " is-on" : ""}`} aria-pressed={on} onClick={() => onChange(!on)}
+      aria-label={`Not: ${what} is anything but the value`} title={on ? "Not: any word except this value — click to find the value itself" : "Not: find any word except this value"}>
+      not
+    </button>
   );
 }
 

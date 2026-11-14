@@ -4,7 +4,7 @@ import { describeFollowers } from "../lib/sequence.js";
 import { TerminalBlock } from "../components/TerminalBlock.jsx";
 import { useEffect, useState } from "react";
 import {
-  ArrowDown, ArrowUp, Code2, Combine, Download, FileDown, Filter, FolderOpen, Lightbulb, NotebookPen, Play, Plus, Save, Search as SearchIcon, Shuffle, Trash2, Workflow as WorkflowIcon, Scale,
+  ArrowDown, ArrowUp, Code2, Combine, Filter, FolderOpen, Lightbulb, NotebookPen, Play, Plus, Save, Search as SearchIcon, Shuffle, Trash2, Workflow as WorkflowIcon, Scale,
 } from "lucide-react";
 import { useApp, EMPTY_QUERY } from "../state/store.jsx";
 import { invoke, openDialog, saveDialog, JSON_FILTERS } from "../lib/ipc.js";
@@ -13,6 +13,7 @@ import { QueryBuilder, corpusOptions, fieldOptions } from "../components/QueryBu
 import { Kwic } from "../components/Kwic.jsx";
 import { BarCell, SERIES } from "../components/charts.jsx";
 import { exportReport } from "../lib/exportReport.js";
+import { ExportMenu } from "../components/ExportMenu.jsx";
 import { safeFileStem, seconds, thousands } from "../lib/format.js";
 import { hasQuery, queryLabel } from "../lib/query.js";
 import { Rate, UnitLabel } from "../components/Units.jsx";
@@ -29,7 +30,7 @@ function describe(s, i) {
   if (s.kind === "search") {
     const q = s.query;
     if (q.manual) return `Find ${queryLabel(q, 80)}${describeFilters(q).map((d) => `, where ${d}`).join("")}`;
-    return `Find ${q.value ? `${q.field} “${q.value}”` : "any word"}${q.ignore_case ? " (any case)" : ""}${describeFollowers(q).map((d) => `, ${d}`).join("")}${q.sentence_only ? ", same sentence" : ""}${describeFilters(q).map((d) => `, where ${d}`).join("")}`;
+    return `Find ${q.value ? `${q.negate ? "not " : ""}${q.field} “${q.value}”` : "any word"}${q.ignore_case ? " (any case)" : ""}${describeFollowers(q).map((d) => `, ${d}`).join("")}${q.sentence_only ? ", same sentence" : ""}${describeFilters(q).map((d) => `, where ${d}`).join("")}`;
   }
   if (s.kind === "refine")
     return `${s.mode === "exclude" ? "Remove" : "Keep only"} matches from step ${s.source} whose ${s.anchor === "matchend" ? "last" : "first"} token has ${s.field} = “${s.value}”${s.ignore_case ? " (any case)" : ""}`;
@@ -251,8 +252,10 @@ function Builder() {
             <>
               <Button variant="ghost" icon={Lightbulb} onClick={async () => setExplain(await invoke("explain_workflow_result", { plan, total: res.data.total }).catch((e) => e.message))}>Explain</Button>
               {rows && <Button variant="ghost" icon={NotebookPen} disabled={!rows.length} onClick={async () => { const r = await invoke("evidence_add", { notebook: evidence, corpus: wf.corpus, rows, query: plan }).catch((e) => toast(e.message, "negative")); if (r) { setEvidence(r.rows); setEvidenceDirty(true); toast(`Added ${r.added} examples to the evidence notebook.`, "positive"); } }}>Add to evidence</Button>}
-              <Button icon={FileDown} onClick={async () => { const p = await saveDialog({ defaultPath: `${safeFileStem(wf.corpus)}_workflow_${res.request.mode}.csv` }); if (p) exportReport(toast, log, "Exported workflow view", invoke("export_workflow_view", { path: p, plan, result: res.data })); }}>Export view…</Button>
-              <Button icon={Download} disabled={!!busy || !res.data.total} onClick={async () => { const p = await saveDialog({ defaultPath: `${safeFileStem(wf.corpus)}_workflow_all.csv` }); if (p) exportReport(toast, log, "Exported workflow (≤5,000)", run("Exporting up to 5,000 spans", "export_workflow_all", { path: p, plan })); }}>Export up to 5,000…</Button>
+              <ExportMenu placement="down" total={res.data.total} unit="spans" sortNote="in corpus order" disabled={!!busy || !res.data.total}
+                pageLabel={groups ? "This table of counts" : "These rows"} pageRows={groups ? groups.length : rows?.length || 0}
+                onPage={async () => { const p = await saveDialog({ defaultPath: `${safeFileStem(wf.corpus)}_workflow_${res.request.mode}.csv` }); if (p) exportReport(toast, log, "Exported workflow view", invoke("export_workflow_view", { path: p, plan, result: res.data })); }}
+                onExport={async (max) => { const p = await saveDialog({ defaultPath: `${safeFileStem(wf.corpus)}_workflow_all.csv` }); if (p) exportReport(toast, log, `Exported ${thousands(max)} workflow spans`, run(`Exporting ${thousands(max)} spans`, "export_workflow_all", { path: p, plan, max })); }} />
             </>
           }
         >

@@ -601,45 +601,107 @@ pub async fn export_concordance_page(
     Ok(ExportReport { path: path.display().to_string(), rows: n, total: Some(total), provenance_path: Some(prov.display().to_string()) })
 }
 
-/// Re-run the search on the server and export the first 5,000 matches.
-#[tauri::command]
-pub async fn export_search_all(state: State<'_, AppState>, path: PathBuf, request: SearchRequest) -> AppResult<ExportReport> {
-    export::format_for(&path)?;
-    let mut req = request.clone();
-    req.offset = 0;
-    req.limit = corpora::SEARCH_LIMIT;
-    let payload = search_payload(&req, true)?;
-    let (raw, elapsed, _) = state.execute(&payload, false).await?;
-    let data = parse::decode_search(&raw, &payload)?;
-    let values: Vec<Value> = data.results.iter().map(|r| serde_json::to_value(r).unwrap_or_default()).collect();
-    let n = export::write_table(&path, &values, Some(&cols(&KWIC_COLUMNS)))?;
-    let prov = export::write_provenance(&path, &concordance_provenance(&req, data.total, n, Some(elapsed))?)?;
-    Ok(ExportReport { path: path.display().to_string(), rows: n, total: Some(data.total), provenance_path: Some(prov.display().to_string()) })
+/// Most rows one "Export…" may write: enough for any realistic study, small
+/// enough for the shared server (one request per 5,000 rows) and local memory.
+pub const EXPORT_MAX: u64 = 250_000;
+pub const EXPORT_PROGRESS_EVENT: &str = "export://progress";
+
+/// Fetch up to `want` rows in requests of at most `SEARCH_LIMIT`, so each
+/// worker reply stays far below the 8 MB safety limit. Stop (on the toolbar)
+/// ends the current request, and the export with it: nothing is written.
+async fn fetch_rows(
+    app: &AppHandle,
+    state: &AppState,
+    want: u64,
+    payload_for: impl Fn(u64, u32) -> AppResult<Value>,
+    decode: impl Fn(&str, &Value) -> AppResult<(Vec<Value>, u64)>,
+) -> AppResult<(Vec<Value>, u64, f64)> {
+    let mut rows: Vec<Value> = Vec::new();
+    let mut total: u64;
+    let mut elapsed = 0.0;
+    loop {
+        let offset = rows.len() as u64;
+        let limit = (want - offset).min(corpora::SEARCH_LIMIT as u64) as u32;
+        let payload = payload_for(offset, limit)?;
+        let (raw, secs, _) = state.execute(&payload, false).await?;
+        let (chunk, t) = decode(&raw, &payload)?;
+        elapsed += secs;
+        total = t;
+        let got = chunk.len();
+        rows.extend(chunk);
+        let target = want.min(total);
+        let _ = app.emit(EXPORT_PROGRESS_EVENT, json!({ "done": rows.len(), "target": target }));
+        if got == 0 || rows.len() as u64 >= target {
+            break;
+        }
+    }
+    Ok((rows, total, elapsed))
 }
 
-/// Re-run a workflow and export its first 5,000 matching spans (corpus order).
+fn export_want(max: Option<u64>) -> u64 {
+    max.unwrap_or(corpora::SEARCH_LIMIT as u64).clamp(1, EXPORT_MAX)
+}
+
+/// Re-run the search and export its first `max` matches (default 5,000, at
+/// most `EXPORT_MAX`) in the current sort order, with a provenance file.
 #[tauri::command]
-pub async fn export_workflow_all(state: State<'_, AppState>, path: PathBuf, plan: Value) -> AppResult<ExportReport> {
+pub async fn export_search_all(app: AppHandle, state: State<'_, AppState>, path: PathBuf, request: SearchRequest, max: Option<u64>) -> AppResult<ExportReport> {
     export::format_for(&path)?;
-    let req = WorkflowRequest {
-        plan: plan.clone(), mode: "export".into(), offset: 0, limit: 5000, context: 4,
+    let want = export_want(max);
+    let base = SearchRequest { offset: 0, ..request.clone() };
+    let (values, total, elapsed) = fetch_rows(
+        &app,
+        state.inner(),
+        want,
+        |offset, limit| search_payload(&SearchRequest { offset, limit, ..base.clone() }, true),
+        |raw, payload| {
+            let data = parse::decode_search(raw, payload)?;
+            Ok((data.results.iter().map(|r| serde_json::to_value(r).unwrap_or_default()).collect(), data.total))
+        },
+    )
+    .await?;
+    let n = export::write_table(&path, &values, Some(&cols(&KWIC_COLUMNS)))?;
+    let mut prov = concordance_provenance(&base, total, n, Some(elapsed))?;
+    prov["requested_rows"] = json!(want);
+    prov["query_parameters"]["limit"] = json!(want);
+    prov["note"] = json!("Rows are the first N matches in the search's sort order (corpus order unless sorted), not a random sample.");
+    let prov = export::write_provenance(&path, &prov)?;
+    Ok(ExportReport { path: path.display().to_string(), rows: n, total: Some(total), provenance_path: Some(prov.display().to_string()) })
+}
+
+/// Re-run a workflow and export its first `max` matching spans (corpus order).
+#[tauri::command]
+pub async fn export_workflow_all(app: AppHandle, state: State<'_, AppState>, path: PathBuf, plan: Value, max: Option<u64>) -> AppResult<ExportReport> {
+    export::format_for(&path)?;
+    let want = export_want(max);
+    let req_at = |offset: u64, limit: u32| WorkflowRequest {
+        plan: plan.clone(), mode: "export".into(), offset: offset as i64, limit: limit as i64, context: 4,
         seed: None, group_field: None, group_position: None,
     };
-    let payload = workflow::workflow_payload(&req)?;
-    let (raw, _, _) = state.execute(&payload, false).await?;
-    let data = parse::decode_workflow(&raw, &payload)?;
-    let rows = data.results.unwrap_or_default();
-    let values: Vec<Value> = rows.iter().map(|r| serde_json::to_value(r).unwrap_or_default()).collect();
+    let (values, total, _) = fetch_rows(
+        &app,
+        state.inner(),
+        want,
+        |offset, limit| workflow::workflow_payload(&req_at(offset, limit)),
+        |raw, payload| {
+            let data = parse::decode_workflow(raw, payload)?;
+            let rows = data.results.unwrap_or_default();
+            Ok((rows.iter().map(|r| serde_json::to_value(r).unwrap_or_default()).collect(), data.total))
+        },
+    )
+    .await?;
     let n = export::write_table(&path, &values, Some(&cols(&KWIC_COLUMNS)))?;
+    let compiled = workflow::workflow_payload(&req_at(0, 1))?;
     let prov = export::write_provenance(&path, &json!({
         "generated_utc": export::utc_now(),
-        "workflow": payload["plan"],
-        "total_matching_spans": data.total,
+        "workflow": compiled["plan"],
+        "total_matching_spans": total,
+        "requested_rows": want,
         "exported_rows": n,
-        "partial": (n as u64) < data.total,
+        "partial": (n as u64) < total,
         "note": "Results are first N matching spans in corpus order, not a random sample.",
     }))?;
-    Ok(ExportReport { path: path.display().to_string(), rows: n, total: Some(data.total), provenance_path: Some(prov.display().to_string()) })
+    Ok(ExportReport { path: path.display().to_string(), rows: n, total: Some(total), provenance_path: Some(prov.display().to_string()) })
 }
 
 /// Export the workflow result currently on screen (rows or groups).

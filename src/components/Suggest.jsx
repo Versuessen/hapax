@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useId, useRef, useState } from "react";
+import { forwardRef, useEffect, useId, useMemo, useRef, useState } from "react";
 import { invoke } from "../lib/ipc.js";
 import { CODE_FIELDS, cqpContext, currentSegment, suggestCodes } from "../lib/cqp.js";
 import { FIELD_LABELS } from "./QueryBuilder.jsx";
@@ -191,6 +191,70 @@ export function CqpEditor({ id, value, onChange, info, codes, describedBy }) {
         data-search-term
         onKeyDown={keys.onKeyDown} />
       {shown && <SuggestList id={listId} items={items} active={keys.active} onPick={pick} label="CQP suggestions" more={all.length - items.length} short />}
+    </div>
+  );
+}
+
+/**
+ * Rank `options` ({ value, label }) for a typed text: every word must occur in
+ * the label or the value (underscores count as spaces, so "genre" finds
+ * text_genre and "pub date" finds text_publication_date). Matches at the start
+ * of a word come first, then the original order.
+ */
+export function rankOptions(options, text) {
+  const words = text.toLowerCase().replace(/_/g, " ").split(/\s+/).filter(Boolean);
+  if (!words.length) return options;
+  const scored = [];
+  options.forEach((o, i) => {
+    const hay = ` ${`${o.label} ${o.value}`.toLowerCase().replace(/_/g, " ").replace(/[·:()]/g, " ")}`;
+    let score = 0;
+    for (const w of words) {
+      const at = hay.indexOf(w);
+      if (at < 0) return;
+      if (hay[at - 1] !== " ") score += 1;
+    }
+    scored.push([score, i, o]);
+  });
+  return scored.sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((x) => x[2]);
+}
+
+/**
+ * A searchable picker: shows the chosen option, and on typing lists the
+ * options whose name or code contains the words typed. Enter takes the
+ * highlighted (or first) option; Escape or leaving the box keeps the old one.
+ */
+export function ComboBox({ id, value, options, onChange, label, placeholder = "Type to search…", small = false }) {
+  const ref = useRef(null);
+  const listId = useId();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(null); // null: not typing, show the chosen option
+  const current = options.find((o) => o.value === value);
+  const shownText = text ?? (current?.label || "");
+  const ranked = useMemo(() => (open ? rankOptions(options, text ?? "") : []), [open, options, text]);
+  const items = ranked.map((o) => ({ code: o.value, label: o.label, kind: "opt" }));
+  const pick = (it) => {
+    onChange(it.code);
+    setText(null);
+    setOpen(false);
+  };
+  const keys = useListKeys(items, open, setOpen, pick);
+  const shown = items.length > 0;
+  return (
+    <div className="suggest-wrap combo">
+      <input ref={ref} id={id} className={`input${small ? " input--sm" : ""}`} value={shownText} autoComplete="off" spellCheck={false}
+        role="combobox" aria-autocomplete="list" aria-expanded={shown} aria-controls={shown ? listId : undefined} aria-label={label}
+        aria-activedescendant={shown && keys.active >= 0 ? `${listId}-${keys.active}` : undefined}
+        placeholder={placeholder} title={current && current.label !== current.value ? `${current.label} · ${current.value}` : undefined}
+        onChange={(e) => { setText(e.target.value); setOpen(true); }}
+        onFocus={(e) => { setOpen(true); e.target.select(); }}
+        onClick={() => setOpen(true)}
+        onBlur={() => { setOpen(false); setText(null); }}
+        onKeyDown={(e) => {
+          if (keys.onKeyDown(e)) { if (e.key === "Escape") setText(null); return; }
+          if (e.key === "Enter" && open && items.length) { e.preventDefault(); e.stopPropagation(); pick(items[0]); }
+        }} />
+      {open && !shown && text?.trim() && <div className="suggest suggest--short combo__none" role="status">Nothing matches “{text.trim()}”</div>}
+      {shown && <SuggestList id={listId} items={items} active={keys.active} onPick={pick} label={label} />}
     </div>
   );
 }

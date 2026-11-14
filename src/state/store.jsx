@@ -3,6 +3,7 @@ import { invoke, listen } from "../lib/ipc.js";
 import { useTheme } from "../lib/theme.js";
 import { ASK_IDS, canonicalScreen } from "../nav.js";
 import { ui } from "../lib/uiState.js";
+import { thousands } from "../lib/format.js";
 
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
@@ -220,6 +221,10 @@ export function AppProvider({ children }) {
       ),
       listen("ssh://connection", ({ payload }) => setConnection(payload)),
       listen("ssh://host-key-prompt", ({ payload }) => setHostKey(payload)),
+      // Long exports run in requests of 5,000 rows; show how far they are.
+      listen("export://progress", ({ payload }) =>
+        setBusy((b) => (b && payload?.target > 5000 ? { ...b, label: `Exporting ${thousands(payload.done)} of ${thousands(payload.target)}` } : b))
+      ),
     ];
     return () => offs.forEach((p) => p.then((f) => f()));
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -2,9 +2,10 @@ import { SEARCH_VIEWS, isSearchable, varietyInfo } from "../nav.js";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
-  BookmarkPlus, ChartLine, ChevronLeft, ChevronRight, Copy, Download, FileDown, Maximize2, Minimize2, Network, NotebookPen, Play, RotateCcw, TextSearch, Quote } from "lucide-react";
+  BookmarkPlus, ChartLine, ChevronLeft, ChevronRight, Copy, Maximize2, Minimize2, Network, NotebookPen, Play, RotateCcw, TextSearch, Quote } from "lucide-react";
 import { useApp, queryKey } from "../state/store.jsx";
 import { exportReport } from "../lib/exportReport.js";
+import { ExportMenu } from "../components/ExportMenu.jsx";
 import { invoke, saveDialog } from "../lib/ipc.js";
 import { Button, Card, Dialog, EmptyState, Field, Input, Notice, Select, Spinner, ViewTabs } from "../components/ui.jsx";
 import { useUiState } from "../lib/uiState.js";
@@ -40,7 +41,6 @@ export default function Search() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const nameTaken = !!saveName.trim() && (prefs?.saved_searches || []).some((x) => x.name === saveName.trim());
-  const [confirmAll, setConfirmAll] = useState(false);
   const { preview, error } = useCqpPreview(query);
   const keyRef = useRef(queryKey(query));
   const resultsRef = useRef(null);
@@ -108,11 +108,10 @@ export default function Search() {
     exportReport(toast, log, "Exported concordance page", invoke("export_concordance_page", { path, request: search.request, rows: data.results, total: data.total }));
   };
 
-  const exportAll = async () => {
-    setConfirmAll(false);
+  const exportAll = async (max) => {
     const path = await saveDialog({ defaultPath: `${safeFileStem(search.request.corpus)}_concordances.csv` });
     if (!path) return;
-    exportReport(toast, log, "Exported first 5,000 matches", run("Exporting up to 5,000 matches", "export_search_all", { path, request: search.request }));
+    exportReport(toast, log, `Exported ${thousands(max)} matches`, run(`Exporting ${thousands(max)} matches`, "export_search_all", { path, request: search.request, max }));
   };
 
   const copyPage = () => {
@@ -241,10 +240,6 @@ export default function Search() {
           )}
         </div>
       </Dialog>
-
-      <Dialog open={confirmAll} onClose={() => setConfirmAll(false)} title="Export the first 5,000 matches?"
-        text={`There are ${thousands(data?.total || 0)} matches. To protect the shared server this exports only the first 5,000 (in the current sort order); the provenance file records that the export is partial.`}
-        footer={<><Button onClick={() => setConfirmAll(false)}>Cancel</Button><Button variant="primary" onClick={exportAll}>Choose file…</Button></>} />
     </div>
   );
 
@@ -302,8 +297,7 @@ export default function Search() {
             )}
           </div>
           <div className="card__foot" style={{ padding: "14px 24px", marginTop: 0 }}>
-            <Button icon={FileDown} onClick={exportPage} disabled={stale || !data.results.length} title="Export this page (Ctrl+E)">Export page…</Button>
-            <Button icon={Download} onClick={() => (data.total > 5000 ? setConfirmAll(true) : exportAll())} disabled={stale || !data.total || !!busy}>Export up to 5,000…</Button>
+            <ExportMenu total={data.total} onPage={exportPage} pageLabel="This page (Ctrl+E)" pageRows={data.results.length} onExport={exportAll} disabled={stale || !data.total || !!busy} />
             <Button icon={Copy} onClick={copyPage} disabled={stale || !data.results.length} title="Copy this page as tab-separated text (paste into a spreadsheet or document)">Copy page</Button>
             <Button icon={NotebookPen} onClick={addEvidence} disabled={stale || !data.results.length} title="Add this page to the evidence notebook (Ctrl+Shift+E)">Add page to evidence</Button>
             <span className="spacer" />

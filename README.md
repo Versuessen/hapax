@@ -48,12 +48,14 @@ Counts, Nearby, Spread, Compare, Structure), so the query, the total and every r
   keywords. The query is checked before it runs, and your filters still apply.
 - Leave the value empty and add filters to list every word of those documents.
 - **Filters** on any document or speaker metadata, combined with AND: only spoken texts, only
-  female speakers, only texts from 1990–1994, or all three at once. Save a set as a named
+  female speakers, only texts from 1990–1994, or all three at once. Find an attribute by
+  typing part of its name (“genre” finds `text_genre`). Save a set as a named
   **preset** per corpus; presets are kept in `preferences.json` beside saved searches.
 - **All forms of a word** — exact through the lemma index where a corpus has one, and through
   reviewed, rule-based suggestions (big → bigger, biggest) where it does not.
 - Phrases of up to nine words. Each word can follow directly or within *N* words, can be
-  optional, and can list alternatives: `you` → `and` → `I|me`.
+  optional, can list alternatives (`you` → `and` → `I|me`) or be a **not** word: `very` →
+  not an adjective.
 - Sort the whole result on the server by the match, the word before or the word after, and
   jump straight to match *N* in a long list.
 - Rates **per million tokens or per million words**: select any rate or corpus size to switch.
@@ -78,7 +80,8 @@ Counts, Nearby, Spread, Compare, Structure), so the query, the total and every r
 - Every query is shown as the exact CQP that runs on the server, and can be copied as commands
   for your own SSH terminal (`cqp>` prompt or a shell script).
 - Concordance, workflow and comparison exports (CSV/TSV) come with a `_provenance.json`
-  recording the query, corpus and date.
+  recording the query, corpus and date. Export the page on screen or the first *N* matches —
+  a number you type, 10%, 50% or all, up to 250,000 rows.
 - An evidence notebook keeps judged examples (relevant, irrelevant, unsure) with notes.
 - A request console (<kbd>Ctrl</kbd>+<kbd>`</kbd>) logs every command sent and every reply.
 
