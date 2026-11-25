@@ -753,3 +753,16 @@ th.num .th-sort { flex-direction: row-reverse; }
 .cqp-help__ex:hover, .cqp-help__ex:focus-visible { background: var(--surface-hover); color: var(--text-1); outline: none; }
 .cqp-help__ex code { color: var(--text-1); white-space: nowrap; }
 .combo__none { padding: 8px 10px; color: var(--text-3); font-size: var(--fs-small); }
+
+/* ===== Corpora › registry folders ======================================= */
+.registries { padding: 0 24px 14px; font-size: var(--fs-small); }
+.registries > summary { cursor: pointer; color: var(--text-2); width: fit-content; }
+.registries > summary:hover { color: var(--text-1); }
+.registries[open] { padding-bottom: 18px; }
+.registries__hint { margin: 8px 0 10px; color: var(--text-3); max-width: 760px; line-height: 1.5; }
+.registries__list { list-style: none; display: grid; gap: 4px; margin-bottom: 10px; }
+.registries__list li { display: flex; align-items: center; gap: 10px; min-height: 30px; flex-wrap: wrap; }
+.registries__path { color: var(--text-1); word-break: break-all; }
+.registries__tag { color: var(--text-3); font-size: var(--fs-micro); }
+.registries__add { max-width: 560px; }
+.registries__err { margin-top: 6px; color: var(--warning-text, var(--text-2)); font-size: var(--fs-micro); }

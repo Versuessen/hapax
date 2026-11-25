@@ -1,8 +1,59 @@
 
 import csv, io, json, os, re, subprocess, sys
 ROOT = "/home/s/structeng/cwb"
-REG = "/home/s/structeng/firth/registry"
+REG_DEFAULT = "/home/s/structeng/firth/registry"
 BIN = ROOT + "/bin/"
+SAFE_DIR = re.compile(r"^/[A-Za-z0-9_./+@-]{1,250}$")
+DOTFILES = (".bashrc", ".bash_profile", ".bash_login", ".profile", ".bash_aliases",
+            ".zshrc", ".zprofile", ".zshenv", ".cshrc", ".tcshrc", ".login")
+
+
+def registry_dirs(items):
+    """Usable registry folders, in order, without repeats (absolute, plain names, existing)."""
+    out = []
+    for d in items:
+        d = (d or "").strip().rstrip("/") or "/"
+        if SAFE_DIR.match(d) and ".." not in d.split("/") and d not in out and os.path.isdir(d):
+            out.append(d)
+    return out
+
+
+def login_registries():
+    """Registry folders the user's own `cqp` would use: CORPUS_REGISTRY from the
+    environment and from the login files (read as text, never run), and `-r`
+    given to cqp in an alias or wrapper. Later settings come first, as in a shell."""
+    home = os.path.expanduser("~")
+    user = os.environ.get("USER", "")
+    found = []
+
+    def expand(value):
+        parts = []
+        for part in re.split(r"[:\s]+", value.strip().strip("'\"")):
+            part = part.strip("'\"")
+            part = re.sub(r"^~(?=/|$)", home, part)
+            part = part.replace("${HOME}", home).replace("$HOME", home).replace("${USER}", user).replace("$USER", user)
+            if part and "$" not in part and "`" not in part:
+                parts.append(part)
+        return parts
+
+    found += expand(os.environ.get("CORPUS_REGISTRY", ""))
+    for name in DOTFILES:
+        try:
+            with open(os.path.join(home, name), encoding="utf-8", errors="replace") as fh:
+                lines = fh.read(400000).splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            code = line.split("#", 1)[0]
+            m = re.search(r"\bCORPUS_REGISTRY\s*=\s*(\S+)", code) or re.search(r"\bsetenv\s+CORPUS_REGISTRY\s+(\S+)", code)
+            if m:
+                found = expand(m.group(1)) + found  # a later line overrides
+            if re.search(r"\bcqp\b", code):
+                for r in re.findall(r"(?:^|\s)-r\s*['\"]?([^\s'\";]+)", code):
+                    found = expand(r) + found
+    return registry_dirs(found)
+
+
 
 
 def fail(msg):
@@ -12,6 +63,10 @@ def fail(msg):
 try:
     req = json.load(sys.stdin)
     op = req["op"]
+    # One registry path for every CWB tool: the course registry first, then the
+    # folders found at the last corpus check (sent back by the app).
+    REG_DIRS = registry_dirs([REG_DEFAULT] + list(req.get("registries") or []))
+    REG = ":".join(REG_DIRS) or REG_DEFAULT
     # Non-interactive ssh does not source the interactive CWB library setup.
     found = subprocess.run(["find", ROOT, "-name", "libcl.so", "-print", "-quit"],
                            capture_output=True, text=True, timeout=12)
@@ -411,16 +466,23 @@ try:
         # Which corpora exist right now. Registry files are small text files;
         # only corpora the app does not already know are described in detail.
         known = set(x.lower() for x in req.get("known", []))
-        found = []
-        try:
-            names = sorted(os.listdir(REG))
-        except OSError as e:
-            fail("Cannot read the corpus registry: " + str(e))
-        for fn in names[:400]:
-            path = os.path.join(REG, fn)
+        from_login = login_registries()
+        dirs = registry_dirs([REG_DEFAULT] + from_login + list(req.get("extra") or []))
+        REG = ":".join(dirs) or REG_DEFAULT
+        found, ids, unreadable = [], set(), []
+        entries = []
+        for d in dirs:
+            try:
+                entries += [(d, fn) for fn in sorted(os.listdir(d))]
+            except OSError as e:
+                unreadable.append(d)
+        if not entries and unreadable:
+            fail("Cannot read the corpus registry: " + ", ".join(unreadable))
+        for reg_dir, fn in entries[:800]:
+            path = os.path.join(reg_dir, fn)
             if fn.startswith(".") or not os.path.isfile(path):
                 continue
-            info = {"id": fn, "name": "", "charset": "", "positional": [], "structural": [], "annotated": []}
+            info = {"id": fn, "name": "", "charset": "", "positional": [], "structural": [], "annotated": [], "registry": reg_dir}
             try:
                 with open(path, encoding="utf-8", errors="replace") as fh:
                     text = fh.read(200000)
@@ -442,6 +504,9 @@ try:
                 if m:
                     info["structural"].append(m.group(1))
                     if "[annotations]" in m.group(2): info["annotated"].append(m.group(1))
+            if info["id"].lower() in ids:
+                continue  # CWB uses the first registry folder that has the corpus
+            ids.add(info["id"].lower())
             if info["id"].lower() not in known and len(found) < 400:
                 try:
                     # Not via call(): a corpus that fails to describe must not abort discovery.
@@ -454,7 +519,8 @@ try:
                 except Exception:
                     pass
             found.append(info)
-        print(json.dumps({"ok": True, "corpora": found}, ensure_ascii=False))
+        print(json.dumps({"ok": True, "corpora": found, "registries": dirs, "login_registries": from_login,
+                          "unreadable": unreadable}, ensure_ascii=False))
     elif op == "syntax":
         pos=int(req["position"])
         tok = call([BIN+"cwb-decode","-r",REG,"-C","-s",str(pos),"-e",str(pos),"EFCAM","-P","tokid"])

@@ -1,6 +1,2 @@
-- Search · Export as many matches as you need: The two export buttons are now one Export… menu. Save the page on screen, or the first N matches: type a number or choose 1,000, 10%, 50% or All, up to 250,000 rows (before, at most 5,000). The toolbar shows how far a large export is, and Stop cancels it. Combine searches has the same menu.
-- Search · Search for “not”: Select not beside a word to match any word except it, for example very followed by anything but an adjective. A not word needs another word or a document filter next to it.
-- Search · Find filter attributes by typing: Under Only in documents where, type part of an attribute's name to find it, for example genre for text_genre or author sex for text_author_sex.
-- Search · Shorter help under Write CQP: The explanation is one line, and the examples open when you select Examples.
-- Search · Build opens Build again: After Ask a question, selecting Build sometimes opened Write CQP. It now opens Build.
-- Window · Narrow windows stay put: On a phone-sized window the top bar no longer pushes the page sideways after a search (the shortcuts button is hidden there).
+- Corpora · Corpora from your own registry setting: Hapax now reads the same corpus list as cqp> show on your account. Besides the course registry it reads the registry folders your login sets for cqp (CORPUS_REGISTRY, or cqp -r in .bashrc, .profile and similar files), so newly added corpora appear after you connect or select Check again.
+- Corpora · See and add registry folders: Registry folders above the corpus table shows which folders were read and where each came from. If a corpus is still missing, add its folder there.

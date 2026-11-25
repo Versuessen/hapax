@@ -12,7 +12,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::oneshot;
 
-use crate::corpora::{self, CorpusInfo, CQP_VERSION_NOTE, CWB_REGISTRY};
+use crate::corpora::{self, CorpusInfo, CQP_VERSION_NOTE};
 use crate::engine::{AppState, Timed};
 use crate::error::{AppError, AppResult};
 use crate::export::{self, EvidenceRow};
@@ -62,7 +62,8 @@ pub async fn get_app_info() -> AppResult<AppInfo> {
 #[tauri::command]
 pub async fn discover_corpora(state: State<'_, AppState>) -> AppResult<corpora::Discovery> {
     let known: Vec<String> = corpora::bundled().keys().map(|k| k.to_lowercase()).collect();
-    let payload = json!({ "op": "registry", "known": known });
+    let extra: Vec<String> = state.prefs_snapshot().extra_registries.into_iter().filter(|d| corpora::valid_registry_dir(d)).collect();
+    let payload = json!({ "op": "registry", "known": known, "extra": extra });
     let (raw, _, _) = state.execute(&payload, false).await?;
     let reply = parse::worker_json(&raw)?;
     let d = corpora::merge_registry(&Value::Object(reply));
@@ -72,6 +73,8 @@ pub async fn discover_corpora(state: State<'_, AppState>) -> AppResult<corpora::
         return Err(AppError::Remote("The corpus registry on the server returned no corpora. The corpus list was left unchanged.".into()));
     }
     corpora::replace(d.corpora.clone());
+    // Every later request reads the same folders (sent along by AppState::execute).
+    corpora::set_registries(if d.registries.is_empty() { vec![corpora::CWB_REGISTRY.into()] } else { d.registries.clone() });
     state.clear_cache();
     Ok(d)
 }
@@ -579,7 +582,7 @@ fn concordance_provenance(request: &SearchRequest, total: u64, exported: usize, 
         "total_matches": total,
         "exported_rows": exported,
         "partial_export": (exported as u64) < total,
-        "cwb_registry": CWB_REGISTRY,
+        "cwb_registry": corpora::cwb_registry(),
         "cqp_version": CQP_VERSION_NOTE,
         "last_completed_operation_wall_seconds": elapsed,
         "timing_note": "Includes SSH round trip and frontend polling, not just the CQP engine execution",

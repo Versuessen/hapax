@@ -278,7 +278,8 @@ export function AppProvider({ children }) {
     try {
       const d = await invoke("discover_corpora");
       setInfo((i) => (i ? { ...i, corpora: d.corpora } : i));
-      setCorpusCheck({ at: new Date(), added: d.added, missing: d.missing, changed: d.changed });
+      setCorpusCheck({ at: new Date(), added: d.added, missing: d.missing, changed: d.changed,
+        registries: d.registries || [], loginRegistries: d.login_registries || [], unreadable: d.unreadable || [] });
       setQuery((q) => {
         if (d.corpora[q.corpus]?.available !== false) return q;
         const first = Object.keys(d.corpora).find((c) => d.corpora[c].available && d.corpora[c].encoding !== "<unsupported>");

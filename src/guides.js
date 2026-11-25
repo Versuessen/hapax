@@ -147,7 +147,7 @@ export const GUIDES = {
       "Tags lists the annotation codes the corpus uses and the packaged codebook.",
     ],
     notes: [
-      "The corpus list is read from the server when you connect. A corpus marked unavailable is not currently installed there.",
+      "The corpus list is read from the server when you connect, from the course registry and from any registry folders your login sets for cqp (CORPUS_REGISTRY or cqp -r in .bashrc, .profile and similar files). Registry folders above the table shows which folders were read; add one there if a corpus you see with show at the cqp> prompt is missing. A corpus marked unavailable is not currently installed there.",
       "The flag shows each corpus's language variety; point at it for the period and source. A corpus found on the server gets a variety only when its registry name or language states one — otherwise it shows ?.",
       "Token counts include punctuation; select a size to switch to words.",
     ],

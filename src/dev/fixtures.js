@@ -295,8 +295,16 @@ const handlers = {
       out["SPOTEST"] = { description: "Spoken Test Corpus 2026", tokens: 48213, encoding: "utf8", positional: ["word", "pos", "lemma"], structural: { text: 120, text_genre: 120, s: 3100 }, metadata: ["text_genre"], lexeme: "lemma", available: true, source: "discovered" };
       added.push("SPOTEST");
     }
+    // ?registry=login simulates corpora in a folder set by CORPUS_REGISTRY in the user's .bashrc.
+    const login = params.get("registry") === "login" ? ["/home/s/structeng/extra/registry"] : [];
+    if (login.length) {
+      out["KJV"] = { description: "King James Bible", tokens: 791000, encoding: "utf8", positional: ["word", "pos", "lemma"], structural: { text: 66, text_book: 66, s: 31000 }, metadata: ["text_book"], lexeme: "lemma", available: true, source: "discovered", variety: "unknown" };
+      added.push("KJV");
+    }
+    const extra = (prefs.extra_registries || []).filter((d) => d.startsWith("/"));
     Object.assign(corpora, out);
-    return { corpora: out, added, missing: changed ? ["BNC"] : [], changed: [] };
+    return { corpora: out, added, missing: changed ? ["BNC"] : [], changed: [],
+      registries: ["/home/s/structeng/firth/registry", ...login, ...extra], login_registries: login, unreadable: [] };
   },
   ssh_disconnect: () => { connected = false; const s = { connected: false, host: null, user: null, port: null, busy: false }; emit("ssh://connection", s); return s; },
   cancel_request: () => { cancelled = true; return true; },

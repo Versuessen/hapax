@@ -83,6 +83,10 @@ pub struct Preferences {
     /// Filter presets keyed by corpus id. Absent in older files; empty maps are not written.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub filter_presets: std::collections::BTreeMap<String, Vec<FilterPreset>>,
+    /// Corpus registry folders added by hand (Corpora › About), read after the
+    /// course registry and the ones in the user's login settings.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_registries: Vec<String>,
     /// Unknown keys are preserved on save (forward compatibility with Phase 2 UI settings).
     #[serde(flatten)]
     pub extra: Map<String, Value>,

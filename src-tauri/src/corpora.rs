@@ -8,7 +8,47 @@ use std::sync::{OnceLock, RwLock};
 
 use crate::error::{invalid, AppResult};
 
+/// The course registry, always read first.
 pub const CWB_REGISTRY: &str = "/home/s/structeng/firth/registry";
+
+/// Registry folders found at the last corpus check: the course registry plus
+/// any from the user's login (`CORPUS_REGISTRY`, `cqp -r …`) or added by hand.
+static REGISTRIES: RwLock<Vec<String>> = RwLock::new(Vec::new());
+
+/// A registry folder as the worker accepts it: absolute, plain characters, no `..`.
+pub fn valid_registry_dir(d: &str) -> bool {
+    d.starts_with('/')
+        && (1..=250).contains(&d.len())
+        && d.chars().all(|c| c.is_ascii_alphanumeric() || "_./+@-".contains(c))
+        && !d.split('/').any(|p| p == "..")
+}
+
+/// Valid folders, in order, without repeats or trailing slashes.
+pub fn clean_registries(dirs: Vec<String>) -> Vec<String> {
+    let mut v: Vec<String> = Vec::new();
+    for d in dirs {
+        let d = d.trim_end_matches('/').to_string();
+        if valid_registry_dir(&d) && !v.contains(&d) {
+            v.push(d);
+        }
+    }
+    v
+}
+
+pub fn set_registries(dirs: Vec<String>) {
+    *REGISTRIES.write().unwrap_or_else(|p| p.into_inner()) = clean_registries(dirs);
+}
+
+/// Registry folders in use, the course registry first.
+pub fn registries() -> Vec<String> {
+    let v = REGISTRIES.read().unwrap_or_else(|p| p.into_inner()).clone();
+    if v.is_empty() { vec![CWB_REGISTRY.to_string()] } else { v }
+}
+
+/// The `-r` value CWB tools get: the folders joined with `:`.
+pub fn cwb_registry() -> String {
+    registries().join(":")
+}
 pub const CQP_VERSION_NOTE: &str = "3.5.1";
 pub const SEARCH_LIMIT: u32 = 5000;
 
@@ -121,6 +161,15 @@ pub struct Discovery {
     pub missing: Vec<String>,
     /// Bundled corpora whose registry charset changed validity (e.g. fixed by the admin).
     pub changed: Vec<String>,
+    /// Registry folders read, in CWB's order (the course registry first).
+    #[serde(default)]
+    pub registries: Vec<String>,
+    /// Of those, the folders found in the user's login settings.
+    #[serde(default)]
+    pub login_registries: Vec<String>,
+    /// Folders that exist but could not be listed.
+    #[serde(default)]
+    pub unreadable: Vec<String>,
 }
 
 /// Build the live inventory from the worker's `registry` reply.
@@ -199,7 +248,13 @@ pub fn merge_registry(reply: &Value) -> Discovery {
             missing.push(id.clone());
         }
     }
-    Discovery { corpora: inv, added, missing, changed }
+    let strs = |k: &str| -> Vec<String> {
+        reply.get(k).and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(String::from).collect()
+    };
+    Discovery {
+        corpora: inv, added, missing, changed,
+        registries: strs("registries"), login_registries: strs("login_registries"), unreadable: strs("unreadable"),
+    }
 }
 
 /// Corpus ids become part of CQP scripts, so only the registry's own id
@@ -331,6 +386,23 @@ mod discovery_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn registry_folders() {
+        assert!(valid_registry_dir("/home/s/structeng/firth/registry"));
+        for bad in ["relative/reg", "/a b", "/a/../etc", "/a;rm", "/a:b", "/$HOME/reg", ""] {
+            assert!(!valid_registry_dir(bad), "{bad}");
+        }
+        let reply = serde_json::json!({ "corpora": [{ "id": "kjv", "charset": "utf8", "positional": ["word"], "registry": "/x/reg" }],
+            "registries": ["/home/s/structeng/firth/registry", "/x/reg"], "login_registries": ["/x/reg"] });
+        let d = merge_registry(&reply);
+        assert!(d.added.contains(&"KJV".to_string()));
+        assert_eq!(d.registries.len(), 2);
+        assert_eq!(d.login_registries, vec!["/x/reg".to_string()]);
+        let v = clean_registries(vec!["/home/s/structeng/firth/registry".into(), "/x/reg/".into(), "/x/reg".into(), "bad".into()]);
+        assert_eq!(v.join(":"), "/home/s/structeng/firth/registry:/x/reg");
+        assert_eq!(cwb_registry(), CWB_REGISTRY); // nothing checked yet: the course registry
+    }
 
     #[test]
     fn inventory_matches_python() {

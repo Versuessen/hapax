@@ -1,10 +1,10 @@
 import { clearFilters, filtersOf, withFilters } from "../lib/filters.js";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { useEffect, useState } from "react";
-import { Database, Filter, Play } from "lucide-react";
+import { Database, Filter, Play, X } from "lucide-react";
 import { useApp } from "../state/store.jsx";
 import { invoke } from "../lib/ipc.js";
-import { Button, Card, Chip, EmptyState, Field, Notice, Select, ScrollTable } from "../components/ui.jsx";
+import { Button, Card, Chip, EmptyState, Field, ICON, Input, Notice, Select, ScrollTable } from "../components/ui.jsx";
 import { BarCell } from "../components/charts.jsx";
 import { corpusColor, corpusFamily, orderedCorpora, isSearchable, varietyInfo } from "../nav.js";
 import { Flag } from "../components/Flag.jsx";
@@ -62,6 +62,69 @@ const SORTS = {
   status: { label: "Status", key: (c, ci) => corpusStatus(ci)[0] },
 };
 
+const COURSE_REGISTRY = "/home/s/structeng/firth/registry";
+const validFolder = (d) => /^\/[A-Za-z0-9_./+@-]{1,250}$/.test(d) && !d.split("/").includes("..");
+
+/**
+ * Which registry folders the corpus list comes from: the course registry,
+ * folders set for cqp in the user's login files, and folders added here.
+ */
+function RegistryFolders() {
+  const { corpusCheck, connection, discover, busy, prefs, setPrefs, toast } = useApp();
+  const [text, setText] = useState("");
+  const added = prefs?.extra_registries || [];
+  const read = corpusCheck?.registries || [];
+  const login = corpusCheck?.loginRegistries || [];
+  const unreadable = corpusCheck?.unreadable || [];
+  const folder = text.trim().replace(/\/+$/, "");
+  const save = async (list) => {
+    const next = { ...prefs, extra_registries: list };
+    try {
+      setPrefs(await invoke("save_preferences", { preferences: next }));
+    } catch (e) {
+      toast(e.message, "negative");
+      return;
+    }
+    if (connection.connected) discover();
+  };
+  const all = [...new Set([COURSE_REGISTRY, ...read, ...added])];
+  const tag = (d) => [
+    d === COURSE_REGISTRY && "course registry",
+    login.includes(d) && "from your login",
+    added.includes(d) && "added here",
+    unreadable.includes(d) && "could not be read",
+    connection.connected && corpusCheck && !read.includes(d) && !unreadable.includes(d) && "not found on the server",
+  ].filter(Boolean).join(" · ");
+  return (
+    <details className="registries">
+      <summary>Registry folders ({all.length})</summary>
+      <p className="registries__hint">
+        Hapax lists the corpora in these folders on the server. Besides the course registry it reads the folders your login sets for
+        cqp (<code>CORPUS_REGISTRY</code> or <code>cqp -r</code> in .bashrc, .profile and similar files). If a corpus you see with{" "}
+        <code>show</code> at the cqp&gt; prompt is missing, run <code>echo $CORPUS_REGISTRY</code> on the server and add the folder here.
+      </p>
+      <ul className="registries__list">
+        {all.map((d) => (
+          <li key={d}>
+            <code className="registries__path">{d}</code>
+            <span className="registries__tag">{tag(d)}</span>
+            {added.includes(d) && (
+              <button type="button" className="btn btn--ghost btn--icon" aria-label={`Remove ${d}`} title="Remove this folder" disabled={!!busy}
+                onClick={() => save(added.filter((x) => x !== d))}><X {...ICON} size={14} /></button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <form className="row registries__add" style={{ gap: 8, flexWrap: "nowrap" }}
+        onSubmit={(e) => { e.preventDefault(); if (validFolder(folder) && !all.includes(folder)) { save([...added, folder]); setText(""); } }}>
+        <Input mono small aria-label="Registry folder to add" placeholder="/home/…/registry" value={text} spellCheck={false} onChange={(e) => setText(e.target.value)} />
+        <Button type="submit" disabled={!validFolder(folder) || all.includes(folder) || !!busy}>Add folder</Button>
+      </form>
+      {folder && !validFolder(folder) && <div className="registries__err" role="status">Use the full path on the server, starting with /, without spaces.</div>}
+    </details>
+  );
+}
+
 /** Every corpus in one sortable table; selecting a row shows its details below. */
 function CorpusTable({ selected, onSelect }) {
   const { info } = useApp();
@@ -93,6 +156,7 @@ function CorpusTable({ selected, onSelect }) {
   };
   return (
     <Card flush title={`${base.length} corpora`} sub={check.text} actions={check.action} style={{ marginBottom: 16 }}>
+      <RegistryFolders />
       <ScrollTable label="Corpora" className="corpus-table">
           <thead>
             <tr>

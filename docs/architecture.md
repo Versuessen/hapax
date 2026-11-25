@@ -56,8 +56,12 @@ See `docs/ux-overhaul/` for the reasoning behind this structure.
 
 ## Corpus discovery
 
-On every connect the interface calls `discover_corpora`. The worker lists the registry folder
-and reads each registry file (`ID`, `NAME`, charset, `ATTRIBUTE`, `STRUCTURE`); corpora the app
+On every connect the interface calls `discover_corpora`. The worker lists the registry folders —
+the course registry, then the folders the user's login sets for their own `cqp` (`CORPUS_REGISTRY`
+in the environment and in `.bashrc`, `.profile`, `.cshrc` and similar files, and `cqp -r …` in an
+alias; the files are read as text, never run), then folders added by hand in Corpora (preference
+`extra_registries`). For a corpus in more than one folder the first wins, as in CWB. It reads each
+registry file (`ID`, `NAME`, charset, `ATTRIBUTE`, `STRUCTURE`); corpora the app
 does not know are additionally described with `cwb-describe-corpus -s`. `merge_registry` then:
 
 - keeps the hand-verified description for known corpora, but takes their charset from the server
@@ -66,7 +70,9 @@ does not know are additionally described with `cwb-describe-corpus -s`. `merge_r
 - keeps known corpora that are missing, marked `available: false`, so they are visible but
   refused with an explanation.
 
-If the registry returns nothing, the previous inventory is kept.
+If the registry returns nothing, the previous inventory is kept. The folders read are kept for the
+session and sent with every request (`registries`), so every CWB tool gets the same
+`-r folder1:folder2` path; the worker accepts only absolute, existing folders with plain names.
 
 ## IPC contract
 

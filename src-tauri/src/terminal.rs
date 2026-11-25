@@ -13,7 +13,6 @@
 
 use serde_json::Value;
 
-use crate::corpora::CWB_REGISTRY;
 
 const CWB_ROOT: &str = "/home/s/structeng/cwb";
 const COLLOCATES: &str = "/home/s/structeng/scripts/collocates.pl";
@@ -136,19 +135,20 @@ fn cqp_body(p: &Value) -> Option<String> {
 
 /// Shell commands for ops that use CWB decoders instead of CQP.
 fn decoder_shell(p: &Value) -> Option<String> {
+    let reg = crate::corpora::cwb_registry();
     let bin = format!("{CWB_ROOT}/bin");
     match s(p, "op") {
-        "registry" => Some(format!("ls {CWB_REGISTRY}\n{bin}/cwb-describe-corpus -s -r {CWB_REGISTRY} <CORPUS>   # size and attributes of one corpus")),
-        "lexicon" => Some(format!("{bin}/cwb-lexdecode -r {CWB_REGISTRY} -f -P {} {} | sort -nr | head -100", s(p, "field"), s(p, "corpus"))),
+        "registry" => Some(format!("ls {reg}\n{bin}/cwb-describe-corpus -s -r {reg} <CORPUS>   # size and attributes of one corpus")),
+        "lexicon" => Some(format!("{bin}/cwb-lexdecode -r {reg} -f -P {} {} | sort -nr | head -100", s(p, "field"), s(p, "corpus"))),
         "metadata" => Some(format!(
-            "{bin}/cwb-s-decode -r {CWB_REGISTRY} {} -S {} | awk -F'\\t' '{{n[$3]++; t[$3]+=$2-$1+1}} END {{for (v in n) print t[v] \"\\t\" n[v] \"\\t\" v}}' | sort -nr | head -100\n# columns: tokens, regions, value",
+            "{bin}/cwb-s-decode -r {reg} {} -S {} | awk -F'\\t' '{{n[$3]++; t[$3]+=$2-$1+1}} END {{for (v in n) print t[v] \"\\t\" n[v] \"\\t\" v}}' | sort -nr | head -100\n# columns: tokens, regions, value",
             s(p, "corpus"),
             s(p, "attribute")
         )),
         "syntax" => {
             let pos = n(p, "position");
             Some(format!(
-                "# 1) sentence-local id of the token:\n{bin}/cwb-decode -r {CWB_REGISTRY} -C -s {pos} -e {pos} EFCAM -P tokid\n# 2) with START = {pos} - tokid + 1, decode the sentence:\n{bin}/cwb-decode -r {CWB_REGISTRY} -C -s START -e $((START+254)) EFCAM -P word -P pos -P lemma -P tokid -P head -P rel"
+                "# 1) sentence-local id of the token:\n{bin}/cwb-decode -r {reg} -C -s {pos} -e {pos} EFCAM -P tokid\n# 2) with START = {pos} - tokid + 1, decode the sentence:\n{bin}/cwb-decode -r {reg} -C -s START -e $((START+254)) EFCAM -P word -P pos -P lemma -P tokid -P head -P rel"
             ))
         }
         _ => None,
@@ -156,15 +156,16 @@ fn decoder_shell(p: &Value) -> Option<String> {
 }
 
 pub fn render(p: &Value, style: Style, title: &str) -> String {
+    let reg = crate::corpora::cwb_registry();
     let header = format!("# Hapax — {title}\n# Generated {} · read-only commands", chrono::Utc::now().format("%Y-%m-%d %H:%M UTC"));
     if let Some(body) = cqp_body(p) {
         return match style {
             Style::Cqp => format!(
-                "{header}\n# Start CQP first:  {} -e -r {CWB_REGISTRY}\n# then paste at the cqp> prompt:\n\n{body}\n",
+                "{header}\n# Start CQP first:  {} -e -r {reg}\n# then paste at the cqp> prompt:\n\n{body}\n",
                 cqp_bin()
             ),
             Style::Shell => format!(
-                "{header}\n{}\n{} -r {CWB_REGISTRY} <<'CQP'\n{body}\nCQP\n",
+                "{header}\n{}\n{} -r {reg} <<'CQP'\n{body}\nCQP\n",
                 lib_path_line(),
                 cqp_bin()
             ),

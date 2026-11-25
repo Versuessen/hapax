@@ -88,8 +88,10 @@ Counts, Nearby, Spread, Compare, Structure), so the query, the total and every r
 **Stay current**
 - Corpora are grouped by language variety (British, American, learner English, …) and flagged,
   so you can see at a glance what you are comparing.
-- The list of corpora is read from the server's registry on every connect. New corpora appear,
-  removed ones are marked offline, and a fixed registry charset is picked up automatically.
+- The list of corpora is read from the server's registry on every connect — the course registry
+  plus any registry folders your login sets for `cqp` (`CORPUS_REGISTRY`, `cqp -r`), or that you
+  add under Corpora › Registry folders. New corpora appear, removed ones are marked offline, and a
+  fixed registry charset is picked up automatically.
 - Hapax updates itself from signed GitHub releases.
 
 Each screen opens with a short guide explaining what it is for and how to use it.
@@ -202,7 +204,7 @@ The server-specific values live in four places:
 | Value | Where |
 |---|---|
 | Default SSH host | `DEFAULT_HOST` in `src-tauri/src/storage.rs` |
-| CWB installation and registry | `ROOT`, `REG` in `src-tauri/remote/worker.py`; `CWB_REGISTRY` in `src-tauri/src/corpora.rs`; `CWB_ROOT` in `src-tauri/src/terminal.rs`; `CWB_BIN` in `src-tauri/src/console.rs` |
+| CWB installation and registry | `ROOT`, `REG_DEFAULT` in `src-tauri/remote/worker.py`; `CWB_REGISTRY` in `src-tauri/src/corpora.rs`; `CWB_ROOT` in `src-tauri/src/terminal.rs`; `CWB_BIN` in `src-tauri/src/console.rs` |
 | Collocates script | `src-tauri/remote/worker.py`, `src-tauri/src/terminal.rs` |
 | Hand-verified corpus descriptions | `src-tauri/resources/corpora.json` (optional — other corpora are discovered from the registry) |
 
@@ -231,6 +233,7 @@ npm run dev                # browser preview with sample data: http://localhost:
 
 Sample-data options for the browser preview: `?fixtures=offline` (start disconnected),
 `&hostkey=1` (host-key prompt), `&registry=changed` (a corpus removed and one added),
+`&registry=login` (a corpus from a registry folder set in the login files),
 `&update=1` (an available update). The sample backend exists only in development builds.
 
 ### Tests

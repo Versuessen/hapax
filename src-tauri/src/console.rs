@@ -17,7 +17,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Emitter};
 
-use crate::corpora::CWB_REGISTRY;
 
 pub const CONSOLE_EVENT: &str = "console://entry";
 const CAPACITY: usize = 300;
@@ -236,9 +235,10 @@ fn tabulate_spec(p: &Value) -> String {
 }
 
 /// The CQP/CWB commands the remote worker runs for this request
-/// (mirrors remote/worker.py; `cqp` = `{CWB_BIN}/cqp -c -p -r {CWB_REGISTRY}`).
+/// (mirrors remote/worker.py; `cqp` = `{CWB_BIN}/cqp -c -p -r <registries>`).
 pub fn cqp_commands(p: &Value) -> String {
-    let cqp = format!("{CWB_BIN}/cqp -c -p -r {CWB_REGISTRY}");
+    let reg = crate::corpora::cwb_registry();
+    let cqp = format!("{CWB_BIN}/cqp -c -p -r {reg}");
     let head = |corpus: &str, expr: &str, extra: &str| {
         format!("set PrettyPrint off;\n{corpus};\n{extra}GUIQuery = {expr};\nsize GUIQuery;")
     };
@@ -278,17 +278,17 @@ pub fn cqp_commands(p: &Value) -> String {
             }
             out
         }
-        "lexicon" => format!("{CWB_BIN}/cwb-lexdecode -r {CWB_REGISTRY} -f -P {} {}", s(p, "field"), s(p, "corpus")),
-        "wordcount" => format!("{CWB_BIN}/cwb-lexdecode -r {CWB_REGISTRY} -f -P word {}\n# frequencies summed; types without a letter or digit (punctuation) are left out", s(p, "corpus")),
-        "metadata" => format!("{CWB_BIN}/cwb-s-decode -r {CWB_REGISTRY} {} -S {}", s(p, "corpus"), s(p, "attribute")),
-        "registry" => format!("ls {CWB_REGISTRY}   # then each registry file is read; new corpora:\n{CWB_BIN}/cwb-describe-corpus -s -r {CWB_REGISTRY} <CORPUS>"),
+        "lexicon" => format!("{CWB_BIN}/cwb-lexdecode -r {reg} -f -P {} {}", s(p, "field"), s(p, "corpus")),
+        "wordcount" => format!("{CWB_BIN}/cwb-lexdecode -r {reg} -f -P word {}\n# frequencies summed; types without a letter or digit (punctuation) are left out", s(p, "corpus")),
+        "metadata" => format!("{CWB_BIN}/cwb-s-decode -r {reg} {} -S {}", s(p, "corpus"), s(p, "attribute")),
+        "registry" => format!("ls {reg}   # then each registry file is read; new corpora:\n{CWB_BIN}/cwb-describe-corpus -s -r {reg} <CORPUS>"),
         "distribution" => format!(
-            "# {cqp}\n{}\ntabulate GUIQuery 0 <min(size, {})-1> match {};\n# counted per value, then sizes from:\n{CWB_BIN}/cwb-s-decode -r {CWB_REGISTRY} {} -S {}",
+            "# {cqp}\n{}\ntabulate GUIQuery 0 <min(size, {})-1> match {};\n# counted per value, then sizes from:\n{CWB_BIN}/cwb-s-decode -r {reg} {} -S {}",
             head(s(p, "corpus"), s(p, "expression"), ""),
             n(p, "cap"), s(p, "attribute"), s(p, "corpus"), s(p, "attribute")
         ),
         "syntax" => format!(
-            "{CWB_BIN}/cwb-decode -r {CWB_REGISTRY} -C -s {pos} -e {pos} EFCAM -P tokid\n# then the whole sentence:\n{CWB_BIN}/cwb-decode -r {CWB_REGISTRY} -C -s <start> -e <start+254> EFCAM -P word -P pos -P lemma -P tokid -P head -P rel",
+            "{CWB_BIN}/cwb-decode -r {reg} -C -s {pos} -e {pos} EFCAM -P tokid\n# then the whole sentence:\n{CWB_BIN}/cwb-decode -r {reg} -C -s <start> -e <start+254> EFCAM -P word -P pos -P lemma -P tokid -P head -P rel",
             pos = n(p, "position")
         ),
         "workflow" => {

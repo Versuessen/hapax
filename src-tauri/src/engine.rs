@@ -128,6 +128,18 @@ impl AppState {
     /// Run one worker request. `cacheable` mirrors v3 `_cached_run` (search pages
     /// and workflow result/sample pages only).
     pub async fn execute(&self, payload: &Value, cacheable: bool) -> AppResult<(String, f64, bool)> {
+        // Registry folders beyond the course registry go with every request,
+        // so all CWB tools on the server read the same corpora.
+        let regs = crate::corpora::registries();
+        let with_regs;
+        let payload = if regs.len() > 1 && payload.is_object() {
+            let mut p = payload.clone();
+            p["registries"] = serde_json::json!(regs);
+            with_regs = p;
+            &with_regs
+        } else {
+            payload
+        };
         let started = Instant::now();
         let key = serde_json::to_string(payload)?;
         if cacheable {
